@@ -5,69 +5,61 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Sistema de Ventas</title>
     <link rel="stylesheet" href="css/styles.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
-    <div class="dashboard-container">
-        <nav class="navbar">
-            <h1>Sistema de Ventas</h1>
-            <div class="user-info">
-                <span id="userName">Usuario</span>
-                <span id="userBranch">Sucursal</span>
-                <button id="logoutBtn" class="btn-logout">Cerrar Sesion</button>
+    <div class="dashboard-layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="../../assets/icon.png" alt="Logo" class="sidebar-logo">
+                <h2>Abejitas</h2>
             </div>
-        </nav>
 
-        <div class="content">
-            <h2>Bienvenido al Sistema</h2>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-page="home">
+                    <i data-lucide="home"></i>
+                    <span>Inicio</span>
+                </a>
+                <a href="#" class="nav-item" data-page="productos">
+                    <i data-lucide="package"></i>
+                    <span>Productos</span>
+                </a>
+                <a href="#" class="nav-item" data-page="ventas">
+                    <i data-lucide="shopping-cart"></i>
+                    <span>Ventas</span>
+                </a>
+                <a href="#" class="nav-item" data-page="sincronizacion">
+                    <i data-lucide="refresh-cw"></i>
+                    <span>Sincronizacion</span>
+                </a>
+                <a href="#" class="nav-item" data-page="reportes">
+                    <i data-lucide="bar-chart"></i>
+                    <span>Reportes</span>
+                </a>
+            </nav>
 
-            <div class="menu-grid">
-                <div class="menu-card" onclick="navigateTo('productos')">
-                    <h3>Productos</h3>
-                    <p>Gestionar inventario y productos</p>
+            <div class="sidebar-footer">
+                <div class="user-info-sidebar">
+                    <i data-lucide="user"></i>
+                    <div class="user-details">
+                        <span id="sidebarUserName">Usuario</span>
+                        <small id="sidebarUserBranch">Sucursal</small>
+                    </div>
                 </div>
-
-                <div class="menu-card" onclick="navigateTo('ventas')">
-                    <h3>Ventas</h3>
-                    <p>Registrar y consultar ventas</p>
-                </div>
-
-                <div class="menu-card" onclick="navigateTo('sincronizacion')">
-                    <h3>Sincronizacion</h3>
-                    <p>Sincronizar datos con central</p>
-                </div>
-
-                <div class="menu-card" onclick="navigateTo('reportes')">
-                    <h3>Reportes</h3>
-                    <p>Ver estadisticas y reportes</p>
-                </div>
+                <button id="logoutBtn" class="btn-logout-sidebar">
+                    <i data-lucide="log-out"></i>
+                </button>
             </div>
-        </div>
+        </aside>
+
+        <main class="main-content">
+            <div id="pageContent"></div>
+        </main>
     </div>
 
+    <script src="js/dashboard.js"></script>
     <script>
-        const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
-
-        if (!usuario || !usuario.username) {
-            window.location.href = 'login.html';
-        }
-
-        const branchNames = {
-            'CUS': 'Cusco',
-            'ABA': 'Abancay',
-            'LIM': 'Lima Central'
-        };
-
-        document.getElementById('userName').textContent = usuario.fullName || 'Usuario';
-        document.getElementById('userBranch').textContent = branchNames[usuario.branch] || usuario.branch || 'Sucursal';
-
-        document.getElementById('logoutBtn').addEventListener('click', () => {
-            localStorage.clear();
-            window.location.href = 'login.html';
-        });
-
-        function navigateTo(module) {
-            alert(`Modulo ${module} en desarrollo`);
-        }
+        lucide.createIcons();
     </script>
 </body>
 </html>

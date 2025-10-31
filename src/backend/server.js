@@ -6,6 +6,11 @@ const path = require('path');
 const fs = require('fs');
 
 const authRoutes = require('./routes/auth');
+const statsRoutes = require('./routes/stats');
+const productosRoutes = require('./routes/productos');
+const ventasRoutes = require('./routes/ventas');
+const sincronizacionRoutes = require('./routes/sincronizacion');
+const reportesRoutes = require('./routes/reportes');
 
 const app = express();
 
@@ -36,6 +41,11 @@ app.use((req, res, next) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/stats', statsRoutes);
+app.use('/api/productos', productosRoutes);
+app.use('/api/ventas', ventasRoutes);
+app.use('/api/sincronizacion', sincronizacionRoutes);
+app.use('/api/reportes', reportesRoutes);
 
 app.get('/api/health', (req, res) => {
   const config = loadConfig();
