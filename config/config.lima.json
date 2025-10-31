@@ -1,0 +1,41 @@
+{
+  "tipo": "CENTRAL",
+  "sucursal_instalacion": "LIM",
+  "nombre_sucursal": "Lima Central",
+
+  "base_datos": {
+    "servidor": "localhost",
+    "bd": "Central_Lima",
+    "usuario": "sa",
+    "password": "TuPassword123",
+    "puerto": 1433,
+    "opciones": {
+      "encrypt": false,
+      "trustServerCertificate": true
+    }
+  },
+
+  "servidor_app": {
+    "puerto": 3000,
+    "host": "0.0.0.0"
+  },
+
+  "servidor_central": {
+    "host": null,
+    "puerto": null,
+    "habilitado": false
+  },
+
+  "sincronizacion": {
+    "automatica": false,
+    "hora": null,
+    "intervalo_minutos": null
+  },
+
+  "negocio": {
+    "nombre_empresa": "Abarrotes Las Abejitas",
+    "ruc": "20123456789",
+    "direccion": "Av. Principal 123, Lima, Perú",
+    "telefono": "01-1234567"
+  }
+}

@@ -1,0 +1,42 @@
+# Dependencias
+node_modules/
+package-lock.json
+
+# Electron build
+dist/
+build/
+*.exe
+*.dmg
+*.AppImage
+
+# Configuración local (NO subir al repo)
+config/config.json
+
+# Base de datos
+*.mdf
+*.ldf
+*.bak
+
+# Logs
+*.log
+logs/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Variables de entorno
+.env
+.env.local
+
+# Temporales
+tmp/
+temp/

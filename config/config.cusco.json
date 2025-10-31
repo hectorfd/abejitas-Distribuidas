@@ -1,0 +1,41 @@
+{
+  "tipo": "SUCURSAL",
+  "sucursal_instalacion": "CUS",
+  "nombre_sucursal": "Cusco",
+
+  "base_datos": {
+    "servidor": "localhost",
+    "bd": "Sucursal_Cusco",
+    "usuario": "sa",
+    "password": "TuPassword123",
+    "puerto": 1433,
+    "opciones": {
+      "encrypt": false,
+      "trustServerCertificate": true
+    }
+  },
+
+  "servidor_app": {
+    "puerto": 3002,
+    "host": "localhost"
+  },
+
+  "servidor_central": {
+    "host": "192.168.1.10",
+    "puerto": 3000,
+    "habilitado": true
+  },
+
+  "sincronizacion": {
+    "automatica": true,
+    "hora": "23:00",
+    "intervalo_minutos": null
+  },
+
+  "negocio": {
+    "nombre_empresa": "Abarrotes Las Abejitas - Sucursal Cusco",
+    "ruc": "20123456789",
+    "direccion": "Av. Ejemplo 456, Cusco, Perú",
+    "telefono": "084-234567"
+  }
+}
