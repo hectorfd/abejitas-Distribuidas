@@ -5,43 +5,49 @@
 1. **Base de datos**: Scripts SQL completos para crear tablas en sucursales y Lima Central
 2. **Backend**: Servidor Express con sistema de autenticación funcionando
 3. **Utilidades**: Generador de IDs con prefijos, conexión a SQL Server, script de setup
+4. **Electron + Frontend Login**: Interfaz gráfica con login funcionando
+   - main.js: Proceso principal de Electron
+   - preload.js: Bridge de seguridad
+   - login.html + login.js: Pantalla de login
+   - index.html: Dashboard principal
+   - styles.css: Estilos globales
 
-## Siguiente paso: Electron + Frontend Login
+## Siguiente paso: CRUD de Productos
 
-Hay que crear estos archivos para tener la interfaz gráfica funcionando:
+Ahora hay que crear el módulo completo de productos:
 
 ### Archivos a crear:
 
 ```
-src/
-├── main.js                      <- Proceso principal de Electron (inicia app)
-├── preload.js                   <- Bridge entre renderer y main process
-└── frontend/
-    ├── login.html               <- Pantalla de login
-    ├── index.html               <- Dashboard principal (después del login)
-    ├── css/
-    │   └── styles.css           <- Estilos globales
-    └── js/
-        └── login.js             <- Lógica de login (fetch API)
+src/backend/
+├── models/
+│   └── productoModel.js         <- Queries SQL para productos
+├── controllers/
+│   └── productosController.js   <- Lógica de negocio productos
+└── routes/
+    └── productos.js             <- Endpoints REST para productos
+
+src/frontend/
+├── productos.html               <- Interfaz de gestión de productos
+└── js/
+    └── productos.js             <- Lógica frontend productos
 ```
 
-### ¿Qué hace cada archivo?
+### Funcionalidad:
 
-- **main.js**: Inicia Electron, crea la ventana, inicia el servidor Express en background
-- **preload.js**: Bridge de seguridad entre frontend y backend
-- **login.html**: Formulario de login con usuario/contraseña
-- **login.js**: Hace POST a /api/auth/login y valida credenciales
-- **index.html**: Dashboard con menú para ir a Productos, Ventas, Sincronización
-- **styles.css**: Estilos con Bootstrap
+- Listar productos de la sucursal
+- Crear nuevo producto (con ID prefijado por sucursal)
+- Editar producto existente
+- Ver stock actual y alerta de stock mínimo
+- Buscar productos por nombre/código de barras
 
 ### Después de esto:
 
-Una vez tengamos login funcionando, seguimos con:
+Una vez tengamos productos funcionando, seguimos con:
 
-1. **CRUD de Productos** (backend + frontend)
-2. **CRUD de Ventas** (backend + frontend)
-3. **Sincronización** entre sucursales
-4. **Testing** en múltiples PCs
+1. **CRUD de Ventas** (backend + frontend)
+2. **Sincronización** entre sucursales
+3. **Testing** en múltiples PCs
 
 ## Cómo probar cuando esté listo
 

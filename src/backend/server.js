@@ -48,19 +48,22 @@ app.get('/api/health', (req, res) => {
 });
 
 function startServer() {
-  const config = loadConfig();
-  const port = config.servidor_app.puerto;
-  const host = config.servidor_app.host;
+  return new Promise((resolve) => {
+    const config = loadConfig();
+    const port = config.servidor_app.puerto;
+    const host = config.servidor_app.host;
 
-  app.listen(port, host, () => {
-    console.log('========================================');
-    console.log('  ABARROTES LAS ABEJITAS - SERVER');
-    console.log('========================================');
-    console.log(`Branch: ${config.nombre_sucursal}`);
-    console.log(`Code: ${config.sucursal_instalacion}`);
-    console.log(`Server: http://${host}:${port}`);
-    console.log(`Database: ${config.base_datos.bd}`);
-    console.log('========================================');
+    const server = app.listen(port, host, () => {
+      console.log('========================================');
+      console.log('  ABARROTES LAS ABEJITAS - SERVER');
+      console.log('========================================');
+      console.log(`Branch: ${config.nombre_sucursal}`);
+      console.log(`Code: ${config.sucursal_instalacion}`);
+      console.log(`Server: http://${host}:${port}`);
+      console.log(`Database: ${config.base_datos.bd}`);
+      console.log('========================================');
+      resolve(server);
+    });
   });
 }
 
@@ -68,4 +71,4 @@ if (require.main === module) {
   startServer();
 }
 
-module.exports = app;
+module.exports = { app, startServer };

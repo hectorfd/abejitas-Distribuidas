@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Sistema de Ventas</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <nav class="navbar">
+            <h1>Sistema de Ventas</h1>
+            <div class="user-info">
+                <span id="userName">Usuario</span>
+                <span id="userBranch">Sucursal</span>
+                <button id="logoutBtn" class="btn-logout">Cerrar Sesion</button>
+            </div>
+        </nav>
+
+        <div class="content">
+            <h2>Bienvenido al Sistema</h2>
+
+            <div class="menu-grid">
+                <div class="menu-card" onclick="navigateTo('productos')">
+                    <h3>Productos</h3>
+                    <p>Gestionar inventario y productos</p>
+                </div>
+
+                <div class="menu-card" onclick="navigateTo('ventas')">
+                    <h3>Ventas</h3>
+                    <p>Registrar y consultar ventas</p>
+                </div>
+
+                <div class="menu-card" onclick="navigateTo('sincronizacion')">
+                    <h3>Sincronizacion</h3>
+                    <p>Sincronizar datos con central</p>
+                </div>
+
+                <div class="menu-card" onclick="navigateTo('reportes')">
+                    <h3>Reportes</h3>
+                    <p>Ver estadisticas y reportes</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
+
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+
+        document.getElementById('userName').textContent = usuario.nombreCompleto || 'Usuario';
+        document.getElementById('userBranch').textContent = usuario.sucursalPermitida || 'Sucursal';
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('usuario');
+            window.location.href = 'login.html';
+        });
+
+        function navigateTo(module) {
+            alert(`Modulo ${module} en desarrollo`);
+        }
+    </script>
+</body>
+</html>
