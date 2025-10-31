@@ -5,10 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Sistema de Ventas</title>
     <link rel="stylesheet" href="css/styles.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
+    <video autoplay muted loop class="video-background">
+        <source src="../../assets/1.mp4" type="video/mp4">
+    </video>
     <div class="login-container">
-        <h2>Sistema de Ventas</h2>
+        <div class="login-header">
+            <img src="../../assets/icon.png" alt="Abejitas Logo" class="login-logo">
+            <h1>Abarrotes Las Abejitas</h1>
+            <p class="integrantes-title">Integrantes:</p>
+            <ul class="integrantes-list">
+                <li><i data-lucide="user"></i> Hector</li>
+                <li><i data-lucide="user"></i> Lizbeth</li>
+                <li><i data-lucide="user"></i> Edwin</li>
+            </ul>
+        </div>
 
         <div id="errorMessage" class="error-message"></div>
 
@@ -20,11 +33,12 @@
 
             <div class="form-group">
                 <label for="password">Contraseña</label>
-                <input type="password" id="password" name="password" required>
-                <label style="display: flex; align-items: center; margin-top: 5px; font-size: 14px;">
-                    <input type="checkbox" id="showPassword" style="margin-right: 5px;">
-                    Mostrar contraseña
-                </label>
+                <div class="password-wrapper">
+                    <input type="password" id="password" name="password" required>
+                    <span class="toggle-password" id="togglePassword">
+                        <i data-lucide="eye" id="eyeIcon"></i>
+                    </span>
+                </div>
             </div>
 
             <button type="submit" class="btn-login">Iniciar Sesión</button>
@@ -32,5 +46,8 @@
     </div>
 
     <script src="js/login.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
 </body>
 </html>

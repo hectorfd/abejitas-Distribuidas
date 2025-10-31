@@ -1,10 +1,14 @@
 const loginForm = document.getElementById('loginForm');
 const errorMessage = document.getElementById('errorMessage');
 const passwordInput = document.getElementById('password');
-const showPasswordCheckbox = document.getElementById('showPassword');
+const togglePassword = document.getElementById('togglePassword');
+const eyeIcon = document.getElementById('eyeIcon');
 
-showPasswordCheckbox.addEventListener('change', () => {
-  passwordInput.type = showPasswordCheckbox.checked ? 'text' : 'password';
+togglePassword.addEventListener('click', () => {
+  const type = passwordInput.type === 'password' ? 'text' : 'password';
+  passwordInput.type = type;
+  eyeIcon.setAttribute('data-lucide', type === 'password' ? 'eye' : 'eye-off');
+  lucide.createIcons();
 });
 
 loginForm.addEventListener('submit', async (e) => {
@@ -27,8 +31,7 @@ loginForm.addEventListener('submit', async (e) => {
     const data = await response.json();
 
     if (response.ok) {
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('usuario', JSON.stringify(data.usuario));
+      localStorage.setItem('usuario', JSON.stringify(data.user));
       window.location.href = 'index.html';
     } else {
       showError(data.error || 'Error al iniciar sesion');

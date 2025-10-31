@@ -45,19 +45,23 @@
     </div>
 
     <script>
-        const token = localStorage.getItem('token');
         const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
 
-        if (!token) {
+        if (!usuario || !usuario.username) {
             window.location.href = 'login.html';
         }
 
-        document.getElementById('userName').textContent = usuario.nombreCompleto || 'Usuario';
-        document.getElementById('userBranch').textContent = usuario.sucursalPermitida || 'Sucursal';
+        const branchNames = {
+            'CUS': 'Cusco',
+            'ABA': 'Abancay',
+            'LIM': 'Lima Central'
+        };
+
+        document.getElementById('userName').textContent = usuario.fullName || 'Usuario';
+        document.getElementById('userBranch').textContent = branchNames[usuario.branch] || usuario.branch || 'Sucursal';
 
         document.getElementById('logoutBtn').addEventListener('click', () => {
-            localStorage.removeItem('token');
-            localStorage.removeItem('usuario');
+            localStorage.clear();
             window.location.href = 'login.html';
         });
 
