@@ -5,9 +5,9 @@
 
   "base_datos": {
     "servidor": "localhost",
-    "bd": "Central_Lima",
+    "bd": "Abejitas_Lima",
     "usuario": "sa",
-    "password": "TuPassword123",
+    "password": "12345678",
     "puerto": 1433,
     "opciones": {
       "encrypt": false,

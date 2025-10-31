@@ -5,9 +5,9 @@
 
   "base_datos": {
     "servidor": "localhost",
-    "bd": "Sucursal_Abancay",
+    "bd": "Abejitas_Abancay",
     "usuario": "sa",
-    "password": "TuPassword123",
+    "password": "12345678",
     "puerto": 1433,
     "opciones": {
       "encrypt": false,

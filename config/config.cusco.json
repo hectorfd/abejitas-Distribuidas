@@ -5,9 +5,9 @@
 
   "base_datos": {
     "servidor": "localhost",
-    "bd": "Sucursal_Cusco",
+    "bd": "Abejitas_Cusco",
     "usuario": "sa",
-    "password": "TuPassword123",
+    "password": "12345678",
     "puerto": 1433,
     "opciones": {
       "encrypt": false,
