@@ -1,5 +1,5 @@
 const sql = require('mssql');
-const { getConnection } = require('../utils/database');
+const { connect: getConnection } = require('../../../database/connection');
 const fs = require('fs');
 const path = require('path');
 
