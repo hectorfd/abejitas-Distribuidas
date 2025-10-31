@@ -1,9 +1,16 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { startServer } = require('./backend/server');
 
 let mainWindow;
 let serverInstance;
+let appConfig;
+
+function loadConfig() {
+  const configPath = path.join(__dirname, '../config/config.json');
+  return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -12,7 +19,8 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      additionalArguments: [`--app-port=${appConfig.servidor_app.puerto}`]
     }
   });
 
@@ -25,6 +33,7 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   try {
+    appConfig = loadConfig();
     serverInstance = await startServer();
     console.log('Servidor backend iniciado');
     createWindow();

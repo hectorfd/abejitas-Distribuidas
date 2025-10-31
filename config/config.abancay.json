@@ -4,7 +4,7 @@
   "nombre_sucursal": "Abancay",
 
   "base_datos": {
-    "servidor": "localhost",
+    "servidor": "HECTOR",
     "bd": "Abejitas_Abancay",
     "usuario": "sa",
     "password": "12345678",

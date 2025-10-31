@@ -4,7 +4,7 @@
   "nombre_sucursal": "Cusco",
 
   "base_datos": {
-    "servidor": "localhost",
+    "servidor": "HECTOR",
     "bd": "Abejitas_Cusco",
     "usuario": "sa",
     "password": "12345678",

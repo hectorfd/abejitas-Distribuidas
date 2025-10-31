@@ -11,7 +11,8 @@
     "build:win": "electron-builder --win",
     "build:all": "electron-builder --win --mac --linux",
     "setup": "node scripts/setup.js",
-    "db:test": "node database/connection.js"
+    "db:test": "node database/connection.js",
+    "update-password": "node scripts/update-password.js"
   },
   "keywords": [
     "pos",

@@ -1,5 +1,11 @@
 const loginForm = document.getElementById('loginForm');
 const errorMessage = document.getElementById('errorMessage');
+const passwordInput = document.getElementById('password');
+const showPasswordCheckbox = document.getElementById('showPassword');
+
+showPasswordCheckbox.addEventListener('change', () => {
+  passwordInput.type = showPasswordCheckbox.checked ? 'text' : 'password';
+});
 
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
