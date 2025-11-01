@@ -8,9 +8,18 @@ CREATE TABLE Usuarios (
     NombreCompleto VARCHAR(100) NOT NULL,
     Rol VARCHAR(20) NOT NULL,
     SucursalPermitida VARCHAR(3) NOT NULL,
-    Activo BIT DEFAULT 1,
     FechaCreacion DATETIME DEFAULT GETDATE(),
     UltimaModificacion DATETIME
+);
+
+CREATE TABLE Sucursales (
+    CodigoSucursal VARCHAR(3) PRIMARY KEY,
+    Nombre VARCHAR(100) NOT NULL,
+    Ciudad VARCHAR(50),
+    Direccion VARCHAR(200),
+    Telefono VARCHAR(15),
+    UltimaSincronizacion DATETIME,
+    Estado VARCHAR(20) DEFAULT 'ACTIVA'
 );
 
 CREATE TABLE Productos (
@@ -18,14 +27,16 @@ CREATE TABLE Productos (
     CodigoSucursal VARCHAR(3) NOT NULL,
     Nombre VARCHAR(100) NOT NULL,
     Descripcion VARCHAR(255),
-    Precio DECIMAL(10,2) NOT NULL,
+    Imagen VARCHAR(500),
+    PrecioCompra DECIMAL(10,2) DEFAULT 0,
+    PrecioVenta DECIMAL(10,2) NOT NULL,
     Stock INT DEFAULT 0,
     StockMinimo INT DEFAULT 5,
-    CodigoBarras VARCHAR(50),
     Categoria VARCHAR(50),
     FechaCreacion DATETIME DEFAULT GETDATE(),
     FechaModificacion DATETIME,
-    Sincronizado BIT DEFAULT 0
+    Sincronizado BIT DEFAULT 0,
+    FOREIGN KEY (CodigoSucursal) REFERENCES Sucursales(CodigoSucursal)
 );
 
 CREATE TABLE Ventas (
@@ -37,7 +48,8 @@ CREATE TABLE Ventas (
     FechaVenta DATETIME DEFAULT GETDATE(),
     UsuarioID INT,
     Sincronizado BIT DEFAULT 0,
-    FOREIGN KEY (UsuarioID) REFERENCES Usuarios(UsuarioID)
+    FOREIGN KEY (UsuarioID) REFERENCES Usuarios(UsuarioID),
+    FOREIGN KEY (CodigoSucursal) REFERENCES Sucursales(CodigoSucursal)
 );
 
 CREATE TABLE DetalleVenta (
@@ -53,29 +65,30 @@ CREATE TABLE DetalleVenta (
 
 CREATE TABLE LogSincronizacion (
     LogID INT IDENTITY(1,1) PRIMARY KEY,
-    FechaInicio DATETIME DEFAULT GETDATE(),
-    FechaFin DATETIME,
+    CodigoSucursal VARCHAR(3),
+    TipoSincronizacion VARCHAR(50),
+    FechaHora DATETIME DEFAULT GETDATE(),
     RegistrosEnviados INT,
     Estado VARCHAR(20),
-    Mensaje VARCHAR(500)
+    Mensaje VARCHAR(500),
+    FOREIGN KEY (CodigoSucursal) REFERENCES Sucursales(CodigoSucursal)
 );
 
-CREATE INDEX IX_Ventas_Fecha ON Ventas(FechaVenta);
-CREATE INDEX IX_Ventas_Sincronizado ON Ventas(Sincronizado);
-CREATE INDEX IX_Productos_Sucursal ON Productos(CodigoSucursal);
-CREATE INDEX IX_Productos_Sincronizado ON Productos(Sincronizado);
-CREATE INDEX IX_DetalleVenta_Venta ON DetalleVenta(VentaID);
-CREATE INDEX IX_Usuarios_Sucursal ON Usuarios(SucursalPermitida);
+INSERT INTO Sucursales (CodigoSucursal, Nombre, Ciudad, Direccion, Estado)
+VALUES
+    ('LIM', 'Oficina Central', 'Lima', 'Av. La Marina 789', 'ACTIVA'),
+    ('CUS', 'Sucursal Cusco', 'Cusco', 'Av. El Sol 123', 'ACTIVA'),
+    ('ABA', 'Sucursal Abancay', 'Abancay', 'Jr. Arequipa 456', 'ACTIVA');
 
 INSERT INTO Usuarios (NombreUsuario, Password, NombreCompleto, Rol, SucursalPermitida)
-VALUES ('admin', '$2a$10$rGHLyVqZ8Z5.6nP4J7BYGu3Y6YXqI.8LHMJmZxQJ3L.YqE8KqLY4G', 'Administrador Cusco', 'ADMIN', 'CUS');
+VALUES ('admin', '$2a$10$YqDphR0NnEoQm.7WwqUaGOpxz6X8nU.j4J3zHyDH8MYaDX7ca3F1C', 'Administrador Cusco', 'ADMIN', 'CUS');
 
-INSERT INTO Productos (ProductoID, CodigoSucursal, Nombre, Descripcion, Precio, Stock, CodigoBarras, Categoria)
+INSERT INTO Productos (ProductoID, CodigoSucursal, Nombre, Descripcion, PrecioCompra, PrecioVenta, Stock, Categoria)
 VALUES
-    ('CUS-PROD-001', 'CUS', 'Coca Cola 2L', 'Gaseosa', 5.50, 100, '7751234567890', 'Bebidas'),
-    ('CUS-PROD-002', 'CUS', 'Pan Frances', 'Pan del dia', 0.50, 200, '7751234567891', 'Panaderia'),
-    ('CUS-PROD-003', 'CUS', 'Arroz Superior', 'Bolsa 1kg', 4.20, 50, '7751234567892', 'Abarrotes');
+    ('CUS-PROD-001', 'CUS', 'Coca Cola 2L', 'Gaseosa', 4.50, 5.50, 100, 'Bebidas'),
+    ('CUS-PROD-002', 'CUS', 'Pan Frances', 'Pan del dia', 0.30, 0.50, 200, 'Panaderia'),
+    ('CUS-PROD-003', 'CUS', 'Arroz Superior', 'Bolsa 1kg', 3.50, 4.20, 50, 'Abarrotes');
 
-PRINT 'Abejitas_Cusco: Tables and data created successfully';
+PRINT 'Abejitas_Cusco: Database created successfully';
 PRINT 'User: admin / admin123';
 GO

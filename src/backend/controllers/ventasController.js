@@ -1,12 +1,13 @@
 const sql = require('mssql');
 const { connect: getConnection } = require('../../../database/connection');
+const { generateSaleId, generateDetailId, getBranchCode } = require('../utils/idGenerator');
 
 const getAllVentas = async (req, res) => {
   try {
     const pool = await getConnection();
     const result = await pool.request()
       .query(`
-        SELECT v.VentaID, v.NumeroVenta, v.FechaVenta, v.Total,
+        SELECT v.VentaID, v.FechaVenta, v.Total, v.CodigoSucursal,
                u.NombreCompleto as Vendedor
         FROM Ventas v
         INNER JOIN Usuarios u ON v.UsuarioID = u.UsuarioID
@@ -15,10 +16,15 @@ const getAllVentas = async (req, res) => {
 
     res.json({
       success: true,
-      ventas: result.recordset
+      ventas: result.recordset.map(v => ({
+        VentaID: v.VentaID,
+        NumeroVenta: v.VentaID,
+        FechaVenta: v.FechaVenta,
+        Total: v.Total,
+        Vendedor: v.Vendedor
+      }))
     });
   } catch (error) {
-    console.error('Error al obtener ventas:', error);
     res.status(500).json({
       success: false,
       error: 'Error al obtener ventas'
@@ -32,9 +38,9 @@ const getVentaById = async (req, res) => {
     const pool = await getConnection();
 
     const ventaResult = await pool.request()
-      .input('id', sql.Int, id)
+      .input('id', sql.NVarChar, id)
       .query(`
-        SELECT v.VentaID, v.NumeroVenta, v.FechaVenta, v.Total,
+        SELECT v.VentaID, v.FechaVenta, v.Total, v.CodigoSucursal,
                u.NombreCompleto as Vendedor, u.UsuarioID
         FROM Ventas v
         INNER JOIN Usuarios u ON v.UsuarioID = u.UsuarioID
@@ -49,16 +55,17 @@ const getVentaById = async (req, res) => {
     }
 
     const detalleResult = await pool.request()
-      .input('id', sql.Int, id)
+      .input('id', sql.NVarChar, id)
       .query(`
-        SELECT d.DetalleVentaID, d.ProductoID, d.Cantidad, d.PrecioUnitario, d.Subtotal,
-               p.Nombre as ProductoNombre, p.Codigo as ProductoCodigo
+        SELECT d.DetalleID, d.ProductoID, d.Cantidad, d.PrecioUnitario, d.Subtotal,
+               p.Nombre as ProductoNombre, p.CodigoSucursal as ProductoCodigo
         FROM DetalleVenta d
         INNER JOIN Productos p ON d.ProductoID = p.ProductoID
         WHERE d.VentaID = @id
       `);
 
     const venta = ventaResult.recordset[0];
+    venta.NumeroVenta = venta.VentaID;
     venta.Detalles = detalleResult.recordset;
 
     res.json({
@@ -66,7 +73,6 @@ const getVentaById = async (req, res) => {
       venta
     });
   } catch (error) {
-    console.error('Error al obtener venta:', error);
     res.status(500).json({
       success: false,
       error: 'Error al obtener venta'
@@ -90,15 +96,14 @@ const createVenta = async (req, res) => {
     const pool = await getConnection();
     await transaction.begin(pool);
 
-    const lastVentaResult = await transaction.request()
-      .query('SELECT ISNULL(MAX(NumeroVenta), 0) as LastNumber FROM Ventas');
-    const numeroVenta = lastVentaResult.recordset[0].LastNumber + 1;
+    const ventaID = await generateSaleId();
+    const branchCode = getBranchCode();
 
     let total = 0;
     for (const detalle of Detalles) {
       const productoResult = await transaction.request()
-        .input('id', sql.Int, detalle.ProductoID)
-        .query('SELECT Stock, PrecioVenta FROM Productos WHERE ProductoID = @id AND Activo = 1');
+        .input('id', sql.NVarChar, detalle.ProductoID)
+        .query('SELECT Stock, PrecioVenta FROM Productos WHERE ProductoID = @id');
 
       if (productoResult.recordset.length === 0) {
         await transaction.rollback();
@@ -123,49 +128,49 @@ const createVenta = async (req, res) => {
       total += subtotal;
 
       await transaction.request()
-        .input('id', sql.Int, detalle.ProductoID)
+        .input('id', sql.NVarChar, detalle.ProductoID)
         .input('cantidad', sql.Int, detalle.Cantidad)
         .query('UPDATE Productos SET Stock = Stock - @cantidad WHERE ProductoID = @id');
     }
 
-    const ventaResult = await transaction.request()
-      .input('numeroVenta', sql.Int, numeroVenta)
+    await transaction.request()
+      .input('ventaID', sql.NVarChar, ventaID)
+      .input('branchCode', sql.NVarChar, branchCode)
       .input('usuarioID', sql.Int, UsuarioID)
       .input('total', sql.Decimal(10, 2), total)
       .query(`
-        INSERT INTO Ventas (NumeroVenta, UsuarioID, Total)
-        VALUES (@numeroVenta, @usuarioID, @total);
-        SELECT SCOPE_IDENTITY() AS VentaID;
+        INSERT INTO Ventas (VentaID, CodigoSucursal, UsuarioID, Total)
+        VALUES (@ventaID, @branchCode, @usuarioID, @total)
       `);
-
-    const ventaID = ventaResult.recordset[0].VentaID;
 
     for (const detalle of Detalles) {
       const productoResult = await transaction.request()
-        .input('id', sql.Int, detalle.ProductoID)
+        .input('id', sql.NVarChar, detalle.ProductoID)
         .query('SELECT PrecioVenta FROM Productos WHERE ProductoID = @id');
 
       const precioUnitario = detalle.PrecioUnitario || productoResult.recordset[0].PrecioVenta;
       const subtotal = precioUnitario * detalle.Cantidad;
+      const detalleID = await generateDetailId(ventaID);
 
       await transaction.request()
-        .input('ventaID', sql.Int, ventaID)
-        .input('productoID', sql.Int, detalle.ProductoID)
+        .input('detalleID', sql.NVarChar, detalleID)
+        .input('ventaID', sql.NVarChar, ventaID)
+        .input('productoID', sql.NVarChar, detalle.ProductoID)
         .input('cantidad', sql.Int, detalle.Cantidad)
         .input('precioUnitario', sql.Decimal(10, 2), precioUnitario)
         .input('subtotal', sql.Decimal(10, 2), subtotal)
         .query(`
-          INSERT INTO DetalleVenta (VentaID, ProductoID, Cantidad, PrecioUnitario, Subtotal)
-          VALUES (@ventaID, @productoID, @cantidad, @precioUnitario, @subtotal)
+          INSERT INTO DetalleVenta (DetalleID, VentaID, ProductoID, Cantidad, PrecioUnitario, Subtotal)
+          VALUES (@detalleID, @ventaID, @productoID, @cantidad, @precioUnitario, @subtotal)
         `);
     }
 
     await transaction.commit();
 
     const newVenta = await pool.request()
-      .input('id', sql.Int, ventaID)
+      .input('id', sql.NVarChar, ventaID)
       .query(`
-        SELECT v.VentaID, v.NumeroVenta, v.FechaVenta, v.Total,
+        SELECT v.VentaID, v.FechaVenta, v.Total,
                u.NombreCompleto as Vendedor
         FROM Ventas v
         INNER JOIN Usuarios u ON v.UsuarioID = u.UsuarioID
@@ -181,7 +186,6 @@ const createVenta = async (req, res) => {
     if (transaction._aborted === false) {
       await transaction.rollback();
     }
-    console.error('Error al crear venta:', error);
     res.status(500).json({
       success: false,
       error: 'Error al crear venta'

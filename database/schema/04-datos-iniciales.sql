@@ -9,7 +9,7 @@ GO
 
 -- Default admin user (password: admin123)
 INSERT INTO Usuarios (NombreUsuario, Password, NombreCompleto, Rol, SucursalPermitida)
-VALUES ('admin', '$2a$10$rGHLyVqZ8Z5.6nP4J7BYGu3Y6YXqI.8LHMJmZxQJ3L.YqE8KqLY4G', 'Administrador', 'ADMIN', 'CUS');
+VALUES ('admin', '$2a$10$YqDphR0NnEoQm.7WwqUaGOpxz6X8nU.j4J3zHyDH8MYaDX7ca3F1C', 'Administrador', 'ADMIN', 'CUS');
 
 -- Sample products
 INSERT INTO Productos (ProductoID, CodigoSucursal, Nombre, Descripcion, Precio, Stock, CodigoBarras, Categoria)

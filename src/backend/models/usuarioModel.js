@@ -4,13 +4,13 @@ const db = require('../../../database/connection');
 const bcrypt = require('bcryptjs');
 
 async function findByUsername(username) {
-  const query = 'SELECT * FROM Usuarios WHERE NombreUsuario = @username AND Activo = 1';
+  const query = 'SELECT * FROM Usuarios WHERE NombreUsuario = @username';
   const result = await db.query(query, { username });
   return result[0] || null;
 }
 
 async function findById(id) {
-  const query = 'SELECT * FROM Usuarios WHERE UsuarioID = @id AND Activo = 1';
+  const query = 'SELECT * FROM Usuarios WHERE UsuarioID = @id';
   const result = await db.query(query, { id });
   return result[0] || null;
 }
@@ -41,7 +41,7 @@ async function verifyPassword(plainPassword, hashedPassword) {
 }
 
 async function getAll() {
-  const query = 'SELECT UsuarioID, NombreUsuario, NombreCompleto, Rol, SucursalPermitida, Activo FROM Usuarios';
+  const query = 'SELECT UsuarioID, NombreUsuario, NombreCompleto, Rol, SucursalPermitida FROM Usuarios';
   return await db.query(query);
 }
 

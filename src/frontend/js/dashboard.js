@@ -7,6 +7,13 @@ if (!usuario || !usuario.username) {
 document.getElementById('sidebarUserName').textContent = usuario.fullName;
 document.getElementById('sidebarUserBranch').textContent = usuario.branch;
 
+if (usuario.branch === 'LIM') {
+  const sincronizacionNav = document.querySelector('.nav-sincronizacion');
+  if (sincronizacionNav) {
+    sincronizacionNav.style.display = 'none';
+  }
+}
+
 document.getElementById('logoutBtn').addEventListener('click', () => {
   localStorage.removeItem('usuario');
   window.location.href = 'login.html';
@@ -146,8 +153,8 @@ async function renderProductosPage() {
             <tr>
               <th>Codigo</th>
               <th>Nombre</th>
-              <th>Precio Compra</th>
-              <th>Precio Venta</th>
+              <th>P. Compra</th>
+              <th>P. Venta</th>
               <th>Stock</th>
               <th>Stock Minimo</th>
               <th>Acciones</th>
@@ -175,43 +182,37 @@ async function renderProductosPage() {
         </div>
         <form id="formProducto">
           <input type="hidden" id="productoId">
-          <div class="form-row">
-            <div class="form-group">
-              <label for="productoCodigo">Codigo *</label>
-              <input type="text" id="productoCodigo" required>
-            </div>
-            <div class="form-group">
-              <label for="productoNombre">Nombre *</label>
-              <input type="text" id="productoNombre" required>
-            </div>
+          <div class="form-group">
+            <label for="productoNombre">Nombre *</label>
+            <input type="text" id="productoNombre" required placeholder="Ingrese el nombre del producto">
           </div>
           <div class="form-group">
             <label for="productoDescripcion">Descripcion</label>
-            <textarea id="productoDescripcion" rows="3"></textarea>
+            <textarea id="productoDescripcion" rows="3" placeholder="Descripcion opcional del producto"></textarea>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label for="productoPrecioCompra">Precio Compra</label>
-              <input type="number" id="productoPrecioCompra" step="0.01" min="0">
+              <input type="number" id="productoPrecioCompra" step="0.01" min="0" placeholder="0.00">
             </div>
             <div class="form-group">
               <label for="productoPrecioVenta">Precio Venta *</label>
-              <input type="number" id="productoPrecioVenta" step="0.01" min="0" required>
+              <input type="number" id="productoPrecioVenta" step="0.01" min="0" required placeholder="0.00">
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label for="productoStock">Stock Actual</label>
-              <input type="number" id="productoStock" min="0">
+              <input type="number" id="productoStock" min="0" placeholder="0">
             </div>
             <div class="form-group">
               <label for="productoStockMinimo">Stock Minimo</label>
-              <input type="number" id="productoStockMinimo" min="0">
+              <input type="number" id="productoStockMinimo" min="0" placeholder="5">
             </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn-secondary" id="btnCancelModal">Cancelar</button>
-            <button type="submit" class="btn-primary">Guardar</button>
+            <button type="submit" class="btn-primary">Guardar Producto</button>
           </div>
         </form>
       </div>
@@ -276,16 +277,16 @@ function renderProductosTable(productos) {
     <tr>
       <td>${p.Codigo}</td>
       <td>${p.Nombre}</td>
-      <td>S/ ${parseFloat(p.PrecioCompra).toFixed(2)}</td>
-      <td>S/ ${parseFloat(p.PrecioVenta).toFixed(2)}</td>
+      <td>S/ ${parseFloat(p.PrecioCompra || 0).toFixed(2)}</td>
+      <td>S/ ${parseFloat(p.PrecioVenta || 0).toFixed(2)}</td>
       <td ${p.Stock <= p.StockMinimo ? 'style="color: red; font-weight: bold;"' : ''}>${p.Stock}</td>
       <td>${p.StockMinimo}</td>
       <td>
         <div class="action-buttons">
-          <button class="btn-icon" onclick="editProducto(${p.ProductoID})" title="Editar">
+          <button class="btn-icon" onclick="editProducto('${p.ProductoID}')" title="Editar">
             <i data-lucide="edit"></i>
           </button>
-          <button class="btn-icon danger" onclick="deleteProducto(${p.ProductoID})" title="Eliminar">
+          <button class="btn-icon danger" onclick="deleteProducto('${p.ProductoID}')" title="Eliminar">
             <i data-lucide="trash-2"></i>
           </button>
         </div>
@@ -314,10 +315,9 @@ function openProductoModal(producto = null) {
   if (producto) {
     title.textContent = 'Editar Producto';
     document.getElementById('productoId').value = producto.ProductoID;
-    document.getElementById('productoCodigo').value = producto.Codigo;
     document.getElementById('productoNombre').value = producto.Nombre;
     document.getElementById('productoDescripcion').value = producto.Descripcion || '';
-    document.getElementById('productoPrecioCompra').value = producto.PrecioCompra;
+    document.getElementById('productoPrecioCompra').value = producto.PrecioCompra || 0;
     document.getElementById('productoPrecioVenta').value = producto.PrecioVenta;
     document.getElementById('productoStock').value = producto.Stock;
     document.getElementById('productoStockMinimo').value = producto.StockMinimo;
@@ -338,13 +338,12 @@ async function saveProducto() {
   const id = document.getElementById('productoId').value;
 
   const producto = {
-    Codigo: document.getElementById('productoCodigo').value,
     Nombre: document.getElementById('productoNombre').value,
     Descripcion: document.getElementById('productoDescripcion').value,
     PrecioCompra: parseFloat(document.getElementById('productoPrecioCompra').value) || 0,
     PrecioVenta: parseFloat(document.getElementById('productoPrecioVenta').value),
     Stock: parseInt(document.getElementById('productoStock').value) || 0,
-    StockMinimo: parseInt(document.getElementById('productoStockMinimo').value) || 0
+    StockMinimo: parseInt(document.getElementById('productoStockMinimo').value) || 5
   };
 
   try {
@@ -366,13 +365,12 @@ async function saveProducto() {
       alert(data.error || 'Error al guardar producto');
     }
   } catch (error) {
-    console.error('Error al guardar producto:', error);
     alert('Error al guardar producto');
   }
 }
 
 window.editProducto = function(id) {
-  const producto = window.productosData.find(p => p.ProductoID === id);
+  const producto = window.productosData.find(p => p.ProductoID == id);
   if (producto) {
     openProductoModal(producto);
   }
@@ -614,7 +612,7 @@ async function searchProductosForSale(query) {
 
       if (filtered.length > 0) {
         sugerenciasDiv.innerHTML = filtered.map(p => `
-          <div class="producto-sugerencia" onclick="addProductoToSale(${p.ProductoID}, '${p.Nombre}', ${p.PrecioVenta}, ${p.Stock})">
+          <div class="producto-sugerencia" onclick="addProductoToSale('${p.ProductoID}', '${p.Nombre}', ${p.PrecioVenta}, ${p.Stock})">
             <strong>${p.Codigo} - ${p.Nombre}</strong>
             <span>S/ ${parseFloat(p.PrecioVenta).toFixed(2)} (Stock: ${p.Stock})</span>
           </div>
