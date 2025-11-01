@@ -1,4 +1,4 @@
-# Configuración de Red para Sistema Distribuido de distribuida
+n# Configuración de Red para Sistema Distribuido de distribuida
 
 ## Configuración del Servidor Central (Lima - PC)
 
@@ -181,10 +181,4 @@ Get-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess
 
 ---
 
-## Resumen del Flujo
 
-1. ✅ Lima (PC) - CENTRAL escucha en puerto 3000
-2. ✅ Cusco (Laptop) - SUCURSAL se conecta a 192.168.1.5:3000
-3. ✅ Cusco envía datos de ventas/productos a Lima
-4. ✅ Lima consolida toda la información
-5. ✅ Cusco puede sincronizar cuando esté conectado a la red
