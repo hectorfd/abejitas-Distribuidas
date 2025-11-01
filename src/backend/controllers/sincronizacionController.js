@@ -41,22 +41,97 @@ const executeSync = async (req, res) => {
     });
   }
 
+  if (!config.servidor_central.habilitado) {
+    return res.status(400).json({
+      success: false,
+      error: 'Servidor central no habilitado'
+    });
+  }
+
   try {
     const pool = await getConnection();
 
+    // Obtener ventas del día que no han sido sincronizadas
     const ventasResult = await pool.request()
       .query(`
-        SELECT COUNT(*) as total
-        FROM Ventas
-        WHERE CAST(FechaVenta AS DATE) = CAST(GETDATE() AS DATE)
+        SELECT v.VentaID, v.FechaVenta, v.Total, v.CodigoSucursal, v.UsuarioID,
+               u.NombreCompleto as NombreVendedor
+        FROM Ventas v
+        INNER JOIN Usuarios u ON v.UsuarioID = u.UsuarioID
+        WHERE CAST(v.FechaVenta AS DATE) = CAST(GETDATE() AS DATE)
+          AND (v.Sincronizada IS NULL OR v.Sincronizada = 0)
       `);
 
-    const ventasHoy = ventasResult.recordset[0].total;
+    const ventas = ventasResult.recordset;
 
+    if (ventas.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No hay ventas pendientes de sincronizar',
+        ventasSincronizadas: 0
+      });
+    }
+
+    // Obtener detalles de cada venta
+    for (let venta of ventas) {
+      const detallesResult = await pool.request()
+        .input('ventaID', sql.NVarChar, venta.VentaID)
+        .query(`
+          SELECT d.DetalleID, d.ProductoID, d.Cantidad, d.PrecioUnitario, d.Subtotal,
+                 p.Nombre as ProductoNombre, p.CodigoSucursal as ProductoCodigo
+          FROM DetalleVenta d
+          INNER JOIN Productos p ON d.ProductoID = p.ProductoID
+          WHERE d.VentaID = @ventaID
+        `);
+
+      venta.Detalles = detallesResult.recordset;
+    }
+
+    // Enviar ventas al servidor central
+    const centralUrl = `http://${config.servidor_central.host}:${config.servidor_central.puerto}/api/sincronizacion/recibir`;
+
+    const fetch = require('node-fetch');
+    const response = await fetch(centralUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        sucursal: config.sucursal_instalacion,
+        nombreSucursal: config.nombre_sucursal,
+        ventas: ventas
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error del servidor central: ${response.status}`);
+    }
+
+    const resultado = await response.json();
+
+    if (!resultado.success) {
+      throw new Error(resultado.error || 'Error desconocido del servidor central');
+    }
+
+    // Marcar ventas como sincronizadas
+    const ventasIDs = ventas.map(v => v.VentaID);
+    const updateRequest = pool.request();
+    const placeholders = ventasIDs.map((id, i) => {
+      updateRequest.input(`id${i}`, sql.NVarChar, id);
+      return `@id${i}`;
+    }).join(',');
+
+    await updateRequest.query(`
+      UPDATE Ventas
+      SET Sincronizada = 1, FechaSincronizacion = GETDATE()
+      WHERE VentaID IN (${placeholders})
+    `);
+
+    // Registrar log exitoso
     await pool.request()
       .input('tipo', sql.NVarChar, 'ENVIO')
       .input('estado', sql.NVarChar, 'EXITOSA')
-      .input('mensaje', sql.NVarChar, `Se sincronizaron ${ventasHoy} ventas del dia`)
+      .input('mensaje', sql.NVarChar, `Se sincronizaron ${ventas.length} ventas con ${config.nombre_sucursal}`)
       .query(`
         INSERT INTO LogSincronizacion (TipoSincronizacion, Estado, Mensaje)
         VALUES (@tipo, @estado, @mensaje)
@@ -64,8 +139,8 @@ const executeSync = async (req, res) => {
 
     res.json({
       success: true,
-      message: `Sincronizacion exitosa. ${ventasHoy} ventas enviadas`,
-      ventasSincronizadas: ventasHoy
+      message: `Sincronizacion exitosa. ${ventas.length} ventas enviadas a Lima`,
+      ventasSincronizadas: ventas.length
     });
 
   } catch (error) {
@@ -87,7 +162,7 @@ const executeSync = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      error: 'Error al sincronizar datos'
+      error: 'Error al sincronizar datos: ' + error.message
     });
   }
 };
@@ -135,8 +210,132 @@ const getSyncStatus = async (req, res) => {
   }
 };
 
+const receiveSync = async (req, res) => {
+  const config = loadConfig();
+
+  if (config.tipo !== 'CENTRAL') {
+    return res.status(400).json({
+      success: false,
+      error: 'Este endpoint solo esta disponible en el servidor central'
+    });
+  }
+
+  try {
+    const { sucursal, nombreSucursal, ventas } = req.body;
+
+    if (!sucursal || !ventas || !Array.isArray(ventas)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Datos invalidos'
+      });
+    }
+
+    const pool = await getConnection();
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    let ventasInsertadas = 0;
+
+    try {
+      for (const venta of ventas) {
+        // Verificar si la venta ya existe
+        const checkRequest = new sql.Request(transaction);
+        const existingVenta = await checkRequest
+          .input('ventaID', sql.NVarChar, venta.VentaID)
+          .query('SELECT VentaID FROM Ventas WHERE VentaID = @ventaID');
+
+        if (existingVenta.recordset.length > 0) {
+          console.log(`Venta ${venta.VentaID} ya existe, omitiendo...`);
+          continue;
+        }
+
+        // Insertar venta
+        const ventaRequest = new sql.Request(transaction);
+        await ventaRequest
+          .input('ventaID', sql.NVarChar, venta.VentaID)
+          .input('codigoSucursal', sql.NVarChar, venta.CodigoSucursal)
+          .input('usuarioID', sql.Int, venta.UsuarioID)
+          .input('total', sql.Decimal(10, 2), venta.Total)
+          .input('fechaVenta', sql.DateTime, venta.FechaVenta)
+          .query(`
+            INSERT INTO Ventas (VentaID, CodigoSucursal, UsuarioID, Total, FechaVenta, Sincronizada, FechaSincronizacion)
+            VALUES (@ventaID, @codigoSucursal, @usuarioID, @total, @fechaVenta, 1, GETDATE())
+          `);
+
+        // Insertar detalles
+        if (venta.Detalles && venta.Detalles.length > 0) {
+          for (const detalle of venta.Detalles) {
+            const detalleRequest = new sql.Request(transaction);
+            await detalleRequest
+              .input('detalleID', sql.NVarChar, detalle.DetalleID)
+              .input('ventaID', sql.NVarChar, venta.VentaID)
+              .input('productoID', sql.NVarChar, detalle.ProductoID)
+              .input('cantidad', sql.Int, detalle.Cantidad)
+              .input('precioUnitario', sql.Decimal(10, 2), detalle.PrecioUnitario)
+              .input('subtotal', sql.Decimal(10, 2), detalle.Subtotal)
+              .query(`
+                INSERT INTO DetalleVenta (DetalleID, VentaID, ProductoID, Cantidad, PrecioUnitario, Subtotal)
+                VALUES (@detalleID, @ventaID, @productoID, @cantidad, @precioUnitario, @subtotal)
+              `);
+          }
+        }
+
+        ventasInsertadas++;
+      }
+
+      // Registrar log
+      const logRequest = new sql.Request(transaction);
+      await logRequest
+        .input('tipo', sql.NVarChar, 'RECEPCION')
+        .input('estado', sql.NVarChar, 'EXITOSA')
+        .input('mensaje', sql.NVarChar, `Recibidas ${ventasInsertadas} ventas de ${nombreSucursal}`)
+        .query(`
+          INSERT INTO LogSincronizacion (TipoSincronizacion, Estado, Mensaje)
+          VALUES (@tipo, @estado, @mensaje)
+        `);
+
+      await transaction.commit();
+
+      res.json({
+        success: true,
+        message: `Se recibieron ${ventasInsertadas} ventas de ${nombreSucursal}`,
+        ventasRecibidas: ventasInsertadas
+      });
+
+    } catch (error) {
+      if (transaction.rolledBack === false) {
+        await transaction.rollback();
+      }
+      throw error;
+    }
+
+  } catch (error) {
+    console.error('Error al recibir sincronizacion:', error);
+
+    try {
+      const pool = await getConnection();
+      await pool.request()
+        .input('tipo', sql.NVarChar, 'RECEPCION')
+        .input('estado', sql.NVarChar, 'ERROR')
+        .input('mensaje', sql.NVarChar, error.message || 'Error desconocido')
+        .query(`
+          INSERT INTO LogSincronizacion (TipoSincronizacion, Estado, Mensaje)
+          VALUES (@tipo, @estado, @mensaje)
+        `);
+    } catch (logError) {
+      console.error('Error al registrar log:', logError);
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Error al recibir datos de sincronizacion: ' + error.message
+    });
+  }
+};
+
 module.exports = {
   getSyncLogs,
   executeSync,
-  getSyncStatus
+  getSyncStatus,
+  receiveSync
 };
