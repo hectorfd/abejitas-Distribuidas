@@ -1,4 +1,4 @@
-# Configuración de Red para Sistema Distribuido
+# Configuración de Red para Sistema Distribuido de distribuida
 
 ## Configuración del Servidor Central (Lima - PC)
 
