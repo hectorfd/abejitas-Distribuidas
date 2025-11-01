@@ -1,7 +1,7 @@
 -- Script para agregar campos de sincronización a la tabla Ventas
--- EJECUTAR ESTE SCRIPT EN AMBAS BASES DE DATOS: Abejitas_Cusco Y Abejitas_Lima
+-- EJECUTAR ESTE SCRIPT EN AMBAS BASES DE DATOS: Abejitas_Cusco, Abejitas_Lima y Abejitas_Arequipa
 
-USE Abejitas_Cusco;  -- Cambiar a Abejitas_Lima cuando lo ejecutes en Lima
+USE Abejitas_Cusco;  -- Cambiar a Abejitas_Lima o Arequipa cuando lo ejecutes en Lima o Arequipa ps
 GO
 
 -- Verificar si la columna Sincronizada existe, si no, agregarla
