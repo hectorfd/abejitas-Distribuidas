@@ -21,11 +21,22 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      cache: false, // Deshabilitar caché
       additionalArguments: [`--app-port=${appConfig.servidor_app.puerto}`]
     }
   });
 
+  // LIMPIAR CACHÉ antes de cargar
+  mainWindow.webContents.session.clearCache();
+
   mainWindow.loadFile(path.join(__dirname, 'frontend', 'login.html'));
+
+  // Agregar tecla F5 para recargar
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F5') {
+      mainWindow.webContents.reloadIgnoringCache();
+    }
+  });
 
   if (process.env.NODE_ENV === 'development') {
     mainWindow.webContents.openDevTools();

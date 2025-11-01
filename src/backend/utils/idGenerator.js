@@ -30,9 +30,13 @@ async function generateSaleId() {
   const pattern = `${branchCode}-${dateStr}-%`;
   const result = await pool.request()
     .input('pattern', sql.NVarChar, pattern)
-    .query('SELECT COUNT(*) as total FROM Ventas WHERE VentaID LIKE @pattern');
+    .query(`
+      SELECT ISNULL(MAX(CAST(RIGHT(VentaID, 3) AS INT)), 0) as maxNum
+      FROM Ventas
+      WHERE VentaID LIKE @pattern
+    `);
 
-  const consecutive = result.recordset[0].total + 1;
+  const consecutive = result.recordset[0].maxNum + 1;
   return `${branchCode}-${dateStr}-${padNumber(consecutive)}`;
 }
 
@@ -40,11 +44,16 @@ async function generateProductId() {
   const branchCode = getBranchCode();
   const pool = await getConnection();
 
+  const pattern = `${branchCode}-PROD-%`;
   const result = await pool.request()
-    .input('branchCode', sql.NVarChar, branchCode)
-    .query('SELECT COUNT(*) as total FROM Productos WHERE CodigoSucursal = @branchCode');
+    .input('pattern', sql.NVarChar, pattern)
+    .query(`
+      SELECT ISNULL(MAX(CAST(RIGHT(ProductoID, 3) AS INT)), 0) as maxNum
+      FROM Productos
+      WHERE ProductoID LIKE @pattern
+    `);
 
-  const consecutive = result.recordset[0].total + 1;
+  const consecutive = result.recordset[0].maxNum + 1;
   return `${branchCode}-PROD-${padNumber(consecutive)}`;
 }
 

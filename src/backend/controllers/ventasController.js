@@ -175,9 +175,11 @@ const createVenta = async (req, res) => {
     });
 
   } catch (error) {
+    console.error('Error al crear venta:', error);
+    console.error('Stack:', error.stack);
     res.status(500).json({
       success: false,
-      error: 'Error al crear venta'
+      error: 'Error al crear venta: ' + error.message
     });
   }
 };

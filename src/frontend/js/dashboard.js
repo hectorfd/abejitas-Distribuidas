@@ -42,7 +42,7 @@ function loadPage(page) {
       renderProductosPage();
       break;
     case 'ventas':
-      renderVentasPage();
+      ventasManager.render();
       break;
     case 'sincronizacion':
       renderSincronizacionPage();
@@ -416,76 +416,75 @@ async function renderVentasPage() {
       </button>
     </div>
 
-    <div id="viewVentas">
-      <div class="content-card">
-        <div class="table-container">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Numero</th>
-                <th>Fecha</th>
-                <th>Vendedor</th>
-                <th>Total</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody id="ventasTableBody">
-              <tr>
-                <td colspan="5" style="text-align: center; padding: 40px;">
-                  <i data-lucide="loader" style="width: 32px; height: 32px;"></i>
-                  <p>Cargando ventas...</p>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+    <div class="content-card">
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Numero</th>
+              <th>Fecha</th>
+              <th>Vendedor</th>
+              <th>Total</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="ventasTableBody">
+            <tr>
+              <td colspan="5" style="text-align: center; padding: 40px;">
+                <i data-lucide="loader" style="width: 32px; height: 32px;"></i>
+                <p>Cargando ventas...</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
-    <div id="viewNuevaVenta" style="display: none;">
-      <div class="content-card">
-        <div style="margin-bottom: 20px;">
-          <button class="btn-secondary" id="btnVolverVentas">
-            <i data-lucide="arrow-left"></i>
-            Volver
+    <div id="modalNuevaVenta" class="modal" style="display: none;">
+      <div class="modal-content" style="max-width: 1000px; max-height: 90vh; overflow-y: auto;">
+        <div class="modal-header">
+          <h2>Nueva Venta</h2>
+          <button class="modal-close" id="btnCloseNuevaVentaModal">
+            <i data-lucide="x"></i>
           </button>
         </div>
+        <div style="padding: 20px;">
+          <div class="search-bar" style="margin-bottom: 20px;">
+            <i data-lucide="search"></i>
+            <input type="text" id="searchProductoVentaModal" placeholder="Buscar producto por codigo o nombre...">
+          </div>
 
-        <div class="search-bar" style="margin-bottom: 20px;">
-          <i data-lucide="search"></i>
-          <input type="text" id="searchProductoVenta" placeholder="Buscar producto por codigo o nombre...">
-        </div>
+          <div id="productosSugerenciasModal" style="display: none; background: white; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 20px; max-height: 200px; overflow-y: auto;"></div>
 
-        <div id="productosSugerencias" style="display: none; background: white; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 20px; max-height: 200px; overflow-y: auto;"></div>
+          <div class="sale-products">
+            <h3>Productos en la venta</h3>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Precio</th>
+                  <th>Cantidad</th>
+                  <th>Subtotal</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="saleProductsBodyModal">
+                <tr>
+                  <td colspan="5" style="text-align: center; padding: 20px; color: #999;">
+                    No hay productos en la venta
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-        <div class="sale-products">
-          <h3>Productos en la venta</h3>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Producto</th>
-                <th>Precio</th>
-                <th>Cantidad</th>
-                <th>Subtotal</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody id="saleProductsBody">
-              <tr>
-                <td colspan="5" style="text-align: center; padding: 20px; color: #999;">
-                  No hay productos en la venta
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="sale-total">
-          <h2>Total: S/ <span id="saleTotal">0.00</span></h2>
-          <button class="btn-primary" id="btnFinalizarVenta" disabled>
-            <i data-lucide="check"></i>
-            Finalizar Venta
-          </button>
+          <div class="sale-total" style="margin-top: 20px;">
+            <h2>Total: S/ <span id="saleTotalModal">0.00</span></h2>
+            <button class="btn-primary" id="btnFinalizarVentaModal" disabled>
+              <i data-lucide="check"></i>
+              Finalizar Venta
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -507,33 +506,274 @@ async function renderVentasPage() {
 
   lucide.createIcons();
 
-  window.saleItems = [];
-
   await loadVentas();
 
   document.getElementById('btnNuevaVenta').addEventListener('click', () => {
-    showNuevaVentaView();
-  });
-
-  document.getElementById('btnVolverVentas').addEventListener('click', () => {
-    showVentasListView();
-  });
-
-  // Guardar la función de búsqueda para poder reasignarla
-  window.searchProductoVentaHandler = async (e) => {
-    await searchProductosForSale(e.target.value);
-  };
-
-  document.getElementById('searchProductoVenta').addEventListener('input', window.searchProductoVentaHandler);
-
-  document.getElementById('btnFinalizarVenta').addEventListener('click', async () => {
-    await finalizarVenta();
+    abrirModalNuevaVenta();
   });
 
   document.getElementById('btnCloseDetalleModal').addEventListener('click', () => {
     document.getElementById('modalDetalleVenta').style.display = 'none';
   });
 }
+
+function abrirModalNuevaVenta() {
+  // Limpiar estado
+  window.saleItems = [];
+
+  // RECREAR TODO EL MODAL DESDE CERO
+  const modal = document.getElementById('modalNuevaVenta');
+  const modalContent = modal.querySelector('.modal-content');
+
+  modalContent.innerHTML = `
+    <div class="modal-header">
+      <h2>Nueva Venta</h2>
+      <button class="modal-close" id="btnCloseNuevaVentaModal">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+    <div style="padding: 20px;">
+      <div class="search-bar" style="margin-bottom: 20px;">
+        <i data-lucide="search"></i>
+        <input type="text" id="searchProductoVentaModal" placeholder="Buscar producto por codigo o nombre...">
+      </div>
+
+      <div id="productosSugerenciasModal" style="display: none; background: white; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 20px; max-height: 200px; overflow-y: auto;"></div>
+
+      <div class="sale-products">
+        <h3>Productos en la venta</h3>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Precio</th>
+              <th>Cantidad</th>
+              <th>Subtotal</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="saleProductsBodyModal">
+            <tr>
+              <td colspan="5" style="text-align: center; padding: 20px; color: #999;">
+                No hay productos en la venta
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="sale-total" style="margin-top: 20px;">
+        <h2>Total: S/ <span id="saleTotalModal">0.00</span></h2>
+        <button class="btn-primary" id="btnFinalizarVentaModal" disabled>
+          <i data-lucide="check"></i>
+          Finalizar Venta
+        </button>
+      </div>
+    </div>
+  `;
+
+  modal.style.display = 'flex';
+
+  // Ahora sí, agregar listeners a los elementos FRESCOS
+  const searchInput = document.getElementById('searchProductoVentaModal');
+  searchInput.oninput = function() {
+    searchProductosForSaleModal(this.value);
+  };
+
+  document.getElementById('btnCloseNuevaVentaModal').onclick = () => {
+    modal.style.display = 'none';
+  };
+
+  document.getElementById('btnFinalizarVentaModal').onclick = () => {
+    finalizarVentaModal();
+  };
+
+  lucide.createIcons();
+
+  // Focus
+  setTimeout(() => {
+    searchInput.focus();
+  }, 100);
+}
+
+async function searchProductosForSaleModal(query) {
+  const sugerenciasDiv = document.getElementById('productosSugerenciasModal');
+
+  if (query.length < 2) {
+    sugerenciasDiv.style.display = 'none';
+    return;
+  }
+
+  const port = window.api.getPort();
+
+  try {
+    const response = await fetch(`http://localhost:${port}/api/productos`);
+    const data = await response.json();
+
+    if (data.success && data.productos) {
+      const filtered = data.productos.filter(p =>
+        p.Nombre.toLowerCase().includes(query.toLowerCase()) ||
+        p.Codigo.toLowerCase().includes(query.toLowerCase())
+      );
+
+      if (filtered.length > 0) {
+        sugerenciasDiv.innerHTML = filtered.map(p => `
+          <div class="producto-sugerencia" onclick='addProductoToSaleModal("${p.ProductoID}", "${p.Nombre.replace(/"/g, '&quot;')}", ${p.PrecioVenta}, ${p.Stock})'>
+            <strong>${p.Codigo} - ${p.Nombre}</strong>
+            <span>S/ ${parseFloat(p.PrecioVenta).toFixed(2)} (Stock: ${p.Stock})</span>
+          </div>
+        `).join('');
+        sugerenciasDiv.style.display = 'block';
+      } else {
+        sugerenciasDiv.style.display = 'none';
+      }
+    }
+  } catch (error) {
+    console.error('Error al buscar productos:', error);
+  }
+}
+
+window.addProductoToSaleModal = function(productoID, nombre, precio, stock) {
+  const existing = window.saleItems.find(item => item.ProductoID === productoID);
+
+  if (existing) {
+    if (existing.Cantidad < stock) {
+      existing.Cantidad++;
+    } else {
+      alert('No hay suficiente stock');
+      return;
+    }
+  } else {
+    window.saleItems.push({
+      ProductoID: productoID,
+      Nombre: nombre,
+      PrecioUnitario: precio,
+      Cantidad: 1,
+      Stock: stock
+    });
+  }
+
+  renderSaleProductsModal();
+  document.getElementById('searchProductoVentaModal').value = '';
+  document.getElementById('productosSugerenciasModal').style.display = 'none';
+};
+
+function renderSaleProductsModal() {
+  const tbody = document.getElementById('saleProductsBodyModal');
+
+  if (window.saleItems.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: #999;">No hay productos en la venta</td></tr>';
+    updateSaleTotalModal();
+    return;
+  }
+
+  tbody.innerHTML = window.saleItems.map((item, index) => `
+    <tr>
+      <td>${item.Nombre}</td>
+      <td>S/ ${parseFloat(item.PrecioUnitario).toFixed(2)}</td>
+      <td>
+        <div class="quantity-controls">
+          <button onclick="decreaseQuantityModal(${index})">-</button>
+          <span>${item.Cantidad}</span>
+          <button onclick="increaseQuantityModal(${index})">+</button>
+        </div>
+      </td>
+      <td>S/ ${(item.PrecioUnitario * item.Cantidad).toFixed(2)}</td>
+      <td>
+        <button class="btn-icon danger" onclick="removeFromSaleModal(${index})">
+          <i data-lucide="trash-2"></i>
+        </button>
+      </td>
+    </tr>
+  `).join('');
+
+  updateSaleTotalModal();
+  lucide.createIcons();
+}
+
+window.increaseQuantityModal = function(index) {
+  const item = window.saleItems[index];
+  if (item.Cantidad < item.Stock) {
+    item.Cantidad++;
+    renderSaleProductsModal();
+  } else {
+    alert('No hay suficiente stock');
+  }
+};
+
+window.decreaseQuantityModal = function(index) {
+  const item = window.saleItems[index];
+  if (item.Cantidad > 1) {
+    item.Cantidad--;
+    renderSaleProductsModal();
+  }
+};
+
+window.removeFromSaleModal = function(index) {
+  window.saleItems.splice(index, 1);
+  renderSaleProductsModal();
+};
+
+function updateSaleTotalModal() {
+  const total = window.saleItems.reduce((sum, item) => sum + (item.PrecioUnitario * item.Cantidad), 0);
+  document.getElementById('saleTotalModal').textContent = total.toFixed(2);
+  document.getElementById('btnFinalizarVentaModal').disabled = window.saleItems.length === 0;
+}
+
+async function finalizarVentaModal() {
+  if (window.saleItems.length === 0) {
+    alert('Agregue productos a la venta');
+    return;
+  }
+
+  const btnFinalizar = document.getElementById('btnFinalizarVentaModal');
+  if (btnFinalizar.disabled) return;
+
+  btnFinalizar.disabled = true;
+  btnFinalizar.innerHTML = '<i data-lucide="loader"></i> Procesando...';
+  lucide.createIcons();
+
+  const port = window.api.getPort();
+  const usuario = JSON.parse(localStorage.getItem('usuario'));
+
+  const venta = {
+    UsuarioID: usuario.id,
+    Detalles: window.saleItems.map(item => ({
+      ProductoID: item.ProductoID,
+      Cantidad: item.Cantidad,
+      PrecioUnitario: item.PrecioUnitario
+    }))
+  };
+
+  try {
+    const response = await fetch(`http://localhost:${port}/api/ventas`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(venta)
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      alert('Venta registrada exitosamente');
+      window.saleItems = [];
+      document.getElementById('modalNuevaVenta').style.display = 'none';
+      await loadVentas();
+    } else {
+      btnFinalizar.disabled = false;
+      btnFinalizar.innerHTML = '<i data-lucide="check"></i> Finalizar Venta';
+      lucide.createIcons();
+      alert(data.error || 'Error al registrar venta');
+    }
+  } catch (error) {
+    console.error('Error al registrar venta:', error);
+    btnFinalizar.disabled = false;
+    btnFinalizar.innerHTML = '<i data-lucide="check"></i> Finalizar Venta';
+    lucide.createIcons();
+    alert('Error al registrar venta: ' + error.message);
+  }
+}
+
 
 async function loadVentas() {
   const port = window.api.getPort();
@@ -582,233 +822,6 @@ function renderVentasTable(ventas) {
   `).join('');
 
   lucide.createIcons();
-}
-
-function showNuevaVentaView() {
-  document.getElementById('viewVentas').style.display = 'none';
-  document.getElementById('viewNuevaVenta').style.display = 'block';
-
-  // Limpiar completamente el estado de la venta
-  window.saleItems = [];
-
-  // Obtener referencias a los elementos
-  const searchInput = document.getElementById('searchProductoVenta');
-  const sugerenciasDiv = document.getElementById('productosSugerencias');
-  const tbody = document.getElementById('saleProductsBody');
-  const btnFinalizar = document.getElementById('btnFinalizarVenta');
-
-  // Remover event listener anterior y agregar uno nuevo para evitar duplicados
-  if (window.searchProductoVentaHandler) {
-    searchInput.removeEventListener('input', window.searchProductoVentaHandler);
-    searchInput.addEventListener('input', window.searchProductoVentaHandler);
-  }
-
-  // Limpiar campos
-  searchInput.value = '';
-  searchInput.disabled = false; // Asegurar que esté habilitado
-  searchInput.readOnly = false; // Asegurar que no esté en modo solo lectura
-  sugerenciasDiv.style.display = 'none';
-
-  // Limpiar y renderizar la tabla vacía
-  tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: #999;">No hay productos en la venta</td></tr>';
-
-  // Actualizar el total y resetear el botón
-  document.getElementById('saleTotal').textContent = '0.00';
-  btnFinalizar.disabled = true;
-  btnFinalizar.innerHTML = '<i data-lucide="check"></i> Finalizar Venta';
-
-  // Hacer foco en el campo de búsqueda
-  setTimeout(() => {
-    searchInput.focus();
-  }, 100);
-
-  lucide.createIcons();
-}
-
-function showVentasListView() {
-  document.getElementById('viewVentas').style.display = 'block';
-  document.getElementById('viewNuevaVenta').style.display = 'none';
-  loadVentas();
-}
-
-async function searchProductosForSale(query) {
-  const sugerenciasDiv = document.getElementById('productosSugerencias');
-
-  if (query.length < 2) {
-    sugerenciasDiv.style.display = 'none';
-    return;
-  }
-
-  const port = window.api.getPort();
-
-  try {
-    const response = await fetch(`http://localhost:${port}/api/productos`);
-    const data = await response.json();
-
-    if (data.success && data.productos) {
-      const filtered = data.productos.filter(p =>
-        p.Nombre.toLowerCase().includes(query.toLowerCase()) ||
-        p.Codigo.toLowerCase().includes(query.toLowerCase())
-      );
-
-      if (filtered.length > 0) {
-        sugerenciasDiv.innerHTML = filtered.map(p => `
-          <div class="producto-sugerencia" onclick='addProductoToSale("${p.ProductoID}", "${p.Nombre.replace(/"/g, '&quot;')}", ${p.PrecioVenta}, ${p.Stock})'>
-            <strong>${p.Codigo} - ${p.Nombre}</strong>
-            <span>S/ ${parseFloat(p.PrecioVenta).toFixed(2)} (Stock: ${p.Stock})</span>
-          </div>
-        `).join('');
-        sugerenciasDiv.style.display = 'block';
-      } else {
-        sugerenciasDiv.style.display = 'none';
-      }
-    }
-  } catch (error) {
-    console.error('Error al buscar productos:', error);
-  }
-}
-
-window.addProductoToSale = function(productoID, nombre, precio, stock) {
-  const existing = window.saleItems.find(item => item.ProductoID === productoID);
-
-  if (existing) {
-    if (existing.Cantidad < stock) {
-      existing.Cantidad++;
-    } else {
-      alert('No hay suficiente stock');
-      return;
-    }
-  } else {
-    window.saleItems.push({
-      ProductoID: productoID,
-      Nombre: nombre,
-      PrecioUnitario: precio,
-      Cantidad: 1,
-      Stock: stock
-    });
-  }
-
-  renderSaleProducts();
-  document.getElementById('searchProductoVenta').value = '';
-  document.getElementById('productosSugerencias').style.display = 'none';
-};
-
-function renderSaleProducts() {
-  const tbody = document.getElementById('saleProductsBody');
-
-  if (window.saleItems.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: #999;">No hay productos en la venta</td></tr>';
-    updateSaleTotal();
-    return;
-  }
-
-  tbody.innerHTML = window.saleItems.map((item, index) => `
-    <tr>
-      <td>${item.Nombre}</td>
-      <td>S/ ${parseFloat(item.PrecioUnitario).toFixed(2)}</td>
-      <td>
-        <div class="quantity-controls">
-          <button onclick="decreaseQuantity(${index})">-</button>
-          <span>${item.Cantidad}</span>
-          <button onclick="increaseQuantity(${index})">+</button>
-        </div>
-      </td>
-      <td>S/ ${(item.PrecioUnitario * item.Cantidad).toFixed(2)}</td>
-      <td>
-        <button class="btn-icon danger" onclick="removeFromSale(${index})">
-          <i data-lucide="trash-2"></i>
-        </button>
-      </td>
-    </tr>
-  `).join('');
-
-  updateSaleTotal();
-  lucide.createIcons();
-}
-
-window.increaseQuantity = function(index) {
-  const item = window.saleItems[index];
-  if (item.Cantidad < item.Stock) {
-    item.Cantidad++;
-    renderSaleProducts();
-  } else {
-    alert('No hay suficiente stock');
-  }
-};
-
-window.decreaseQuantity = function(index) {
-  const item = window.saleItems[index];
-  if (item.Cantidad > 1) {
-    item.Cantidad--;
-    renderSaleProducts();
-  }
-};
-
-window.removeFromSale = function(index) {
-  window.saleItems.splice(index, 1);
-  renderSaleProducts();
-};
-
-function updateSaleTotal() {
-  const total = window.saleItems.reduce((sum, item) => sum + (item.PrecioUnitario * item.Cantidad), 0);
-  document.getElementById('saleTotal').textContent = total.toFixed(2);
-  document.getElementById('btnFinalizarVenta').disabled = window.saleItems.length === 0;
-}
-
-async function finalizarVenta() {
-  if (window.saleItems.length === 0) {
-    alert('Agregue productos a la venta');
-    return;
-  }
-
-  const btnFinalizar = document.getElementById('btnFinalizarVenta');
-  if (btnFinalizar.disabled) return;
-
-  btnFinalizar.disabled = true;
-  btnFinalizar.innerHTML = '<i data-lucide="loader"></i> Procesando...';
-  lucide.createIcons();
-
-  const port = window.api.getPort();
-  const usuario = JSON.parse(localStorage.getItem('usuario'));
-
-  const venta = {
-    UsuarioID: usuario.id,
-    Detalles: window.saleItems.map(item => ({
-      ProductoID: item.ProductoID,
-      Cantidad: item.Cantidad,
-      PrecioUnitario: item.PrecioUnitario
-    }))
-  };
-
-  try {
-    const response = await fetch(`http://localhost:${port}/api/ventas`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(venta)
-    });
-
-    const data = await response.json();
-
-    if (data.success) {
-      alert('Venta registrada exitosamente');
-      // Limpiar completamente el estado de la venta
-      window.saleItems = [];
-      document.getElementById('searchProductoVenta').value = '';
-      document.getElementById('productosSugerencias').style.display = 'none';
-      showVentasListView();
-    } else {
-      btnFinalizar.disabled = false;
-      btnFinalizar.innerHTML = '<i data-lucide="check"></i> Finalizar Venta';
-      lucide.createIcons();
-      alert(data.error || 'Error al registrar venta');
-    }
-  } catch (error) {
-    console.error('Error al registrar venta:', error);
-    btnFinalizar.disabled = false;
-    btnFinalizar.innerHTML = '<i data-lucide="check"></i> Finalizar Venta';
-    lucide.createIcons();
-    alert('Error al registrar venta');
-  }
 }
 
 window.verDetalleVenta = async function(ventaID) {
@@ -1563,5 +1576,6 @@ async function generarReporteStock() {
     container.innerHTML = '<p style="color: red; padding: 20px;">Error al generar reporte</p>';
   }
 }
+
 
 loadPage('home');
