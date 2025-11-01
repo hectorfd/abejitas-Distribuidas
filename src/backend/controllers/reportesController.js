@@ -17,7 +17,7 @@ const getVentasPorFecha = async (req, res) => {
       .input('fechaInicio', sql.Date, fechaInicio)
       .input('fechaFin', sql.Date, fechaFin)
       .query(`
-        SELECT v.NumeroVenta, v.FechaVenta, v.Total,
+        SELECT v.VentaID AS NumeroVenta, v.FechaVenta, v.Total,
                u.NombreCompleto as Vendedor
         FROM Ventas v
         INNER JOIN Usuarios u ON v.UsuarioID = u.UsuarioID
@@ -66,14 +66,14 @@ const getProductosMasVendidos = async (req, res) => {
       .input('limite', sql.Int, topLimit)
       .query(`
         SELECT TOP (@limite)
-               p.Codigo, p.Nombre,
+               p.CodigoSucursal AS Codigo, p.Nombre,
                SUM(dv.Cantidad) as CantidadVendida,
                SUM(dv.Subtotal) as TotalVendido
         FROM DetalleVenta dv
         INNER JOIN Productos p ON dv.ProductoID = p.ProductoID
         INNER JOIN Ventas v ON dv.VentaID = v.VentaID
         WHERE CAST(v.FechaVenta AS DATE) BETWEEN @fechaInicio AND @fechaFin
-        GROUP BY p.ProductoID, p.Codigo, p.Nombre
+        GROUP BY p.ProductoID, p.CodigoSucursal, p.Nombre
         ORDER BY SUM(dv.Cantidad) DESC
       `);
 
@@ -134,9 +134,9 @@ const getProductosBajoStock = async (req, res) => {
     const pool = await getConnection();
     const result = await pool.request()
       .query(`
-        SELECT ProductoID, Codigo, Nombre, Stock, StockMinimo
+        SELECT ProductoID, CodigoSucursal AS Codigo, Nombre, Stock, StockMinimo
         FROM Productos
-        WHERE Stock <= StockMinimo AND Activo = 1
+        WHERE Stock <= StockMinimo
         ORDER BY Stock ASC
       `);
 

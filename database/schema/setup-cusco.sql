@@ -1,3 +1,5 @@
+create database Abejitas_Cusco;
+go
 USE Abejitas_Cusco;
 GO
 

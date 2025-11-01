@@ -612,7 +612,7 @@ async function searchProductosForSale(query) {
 
       if (filtered.length > 0) {
         sugerenciasDiv.innerHTML = filtered.map(p => `
-          <div class="producto-sugerencia" onclick="addProductoToSale('${p.ProductoID}', '${p.Nombre}', ${p.PrecioVenta}, ${p.Stock})">
+          <div class="producto-sugerencia" onclick='addProductoToSale("${p.ProductoID}", "${p.Nombre.replace(/"/g, '&quot;')}", ${p.PrecioVenta}, ${p.Stock})'>
             <strong>${p.Codigo} - ${p.Nombre}</strong>
             <span>S/ ${parseFloat(p.PrecioVenta).toFixed(2)} (Stock: ${p.Stock})</span>
           </div>
@@ -720,6 +720,12 @@ async function finalizarVenta() {
     return;
   }
 
+  const btnFinalizar = document.getElementById('btnFinalizarVenta');
+  if (btnFinalizar.disabled) return;
+
+  btnFinalizar.disabled = true;
+  btnFinalizar.textContent = 'Procesando...';
+
   const port = window.api.getPort();
   const usuario = JSON.parse(localStorage.getItem('usuario'));
 
@@ -745,10 +751,13 @@ async function finalizarVenta() {
       alert('Venta registrada exitosamente');
       showVentasListView();
     } else {
+      btnFinalizar.disabled = false;
+      btnFinalizar.textContent = 'Finalizar Venta';
       alert(data.error || 'Error al registrar venta');
     }
   } catch (error) {
-    console.error('Error al finalizar venta:', error);
+    btnFinalizar.disabled = false;
+    btnFinalizar.textContent = 'Finalizar Venta';
     alert('Error al registrar venta');
   }
 }

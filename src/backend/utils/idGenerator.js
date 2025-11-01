@@ -1,6 +1,7 @@
 // ID generator with branch prefixes for distributed system
 
-const db = require('../../../database/connection');
+const sql = require('mssql');
+const { connect: getConnection } = require('../../../database/connection');
 const fs = require('fs');
 const path = require('path');
 
@@ -24,45 +25,37 @@ function padNumber(num, length = 3) {
 async function generateSaleId() {
   const branchCode = getBranchCode();
   const dateStr = formatDate();
-
-  const query = `
-    SELECT COUNT(*) as total
-    FROM Ventas
-    WHERE VentaID LIKE @pattern
-  `;
+  const pool = await getConnection();
 
   const pattern = `${branchCode}-${dateStr}-%`;
-  const result = await db.query(query, { pattern });
+  const result = await pool.request()
+    .input('pattern', sql.NVarChar, pattern)
+    .query('SELECT COUNT(*) as total FROM Ventas WHERE VentaID LIKE @pattern');
 
-  const consecutive = result[0].total + 1;
+  const consecutive = result.recordset[0].total + 1;
   return `${branchCode}-${dateStr}-${padNumber(consecutive)}`;
 }
 
 async function generateProductId() {
   const branchCode = getBranchCode();
+  const pool = await getConnection();
 
-  const query = `
-    SELECT COUNT(*) as total
-    FROM Productos
-    WHERE CodigoSucursal = @branchCode
-  `;
+  const result = await pool.request()
+    .input('branchCode', sql.NVarChar, branchCode)
+    .query('SELECT COUNT(*) as total FROM Productos WHERE CodigoSucursal = @branchCode');
 
-  const result = await db.query(query, { branchCode });
-  const consecutive = result[0].total + 1;
-
+  const consecutive = result.recordset[0].total + 1;
   return `${branchCode}-PROD-${padNumber(consecutive)}`;
 }
 
 async function generateDetailId(saleId) {
-  const query = `
-    SELECT COUNT(*) as total
-    FROM DetalleVenta
-    WHERE VentaID = @saleId
-  `;
+  const pool = await getConnection();
 
-  const result = await db.query(query, { saleId });
-  const consecutive = result[0].total + 1;
+  const result = await pool.request()
+    .input('saleId', sql.NVarChar, saleId)
+    .query('SELECT COUNT(*) as total FROM DetalleVenta WHERE VentaID = @saleId');
 
+  const consecutive = result.recordset[0].total + 1;
   return `${saleId}-${consecutive}`;
 }
 

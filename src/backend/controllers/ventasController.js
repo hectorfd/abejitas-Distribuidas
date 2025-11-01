@@ -81,8 +81,6 @@ const getVentaById = async (req, res) => {
 };
 
 const createVenta = async (req, res) => {
-  const transaction = new sql.Transaction();
-
   try {
     const { UsuarioID, Detalles } = req.body;
 
@@ -94,19 +92,16 @@ const createVenta = async (req, res) => {
     }
 
     const pool = await getConnection();
-    await transaction.begin(pool);
-
     const ventaID = await generateSaleId();
     const branchCode = getBranchCode();
 
     let total = 0;
     for (const detalle of Detalles) {
-      const productoResult = await transaction.request()
+      const productoResult = await pool.request()
         .input('id', sql.NVarChar, detalle.ProductoID)
         .query('SELECT Stock, PrecioVenta FROM Productos WHERE ProductoID = @id');
 
       if (productoResult.recordset.length === 0) {
-        await transaction.rollback();
         return res.status(400).json({
           success: false,
           error: `Producto ${detalle.ProductoID} no encontrado`
@@ -116,7 +111,6 @@ const createVenta = async (req, res) => {
       const producto = productoResult.recordset[0];
 
       if (producto.Stock < detalle.Cantidad) {
-        await transaction.rollback();
         return res.status(400).json({
           success: false,
           error: `Stock insuficiente para producto ${detalle.ProductoID}`
@@ -126,14 +120,9 @@ const createVenta = async (req, res) => {
       const precioUnitario = detalle.PrecioUnitario || producto.PrecioVenta;
       const subtotal = precioUnitario * detalle.Cantidad;
       total += subtotal;
-
-      await transaction.request()
-        .input('id', sql.NVarChar, detalle.ProductoID)
-        .input('cantidad', sql.Int, detalle.Cantidad)
-        .query('UPDATE Productos SET Stock = Stock - @cantidad WHERE ProductoID = @id');
     }
 
-    await transaction.request()
+    await pool.request()
       .input('ventaID', sql.NVarChar, ventaID)
       .input('branchCode', sql.NVarChar, branchCode)
       .input('usuarioID', sql.Int, UsuarioID)
@@ -144,7 +133,7 @@ const createVenta = async (req, res) => {
       `);
 
     for (const detalle of Detalles) {
-      const productoResult = await transaction.request()
+      const productoResult = await pool.request()
         .input('id', sql.NVarChar, detalle.ProductoID)
         .query('SELECT PrecioVenta FROM Productos WHERE ProductoID = @id');
 
@@ -152,7 +141,7 @@ const createVenta = async (req, res) => {
       const subtotal = precioUnitario * detalle.Cantidad;
       const detalleID = await generateDetailId(ventaID);
 
-      await transaction.request()
+      await pool.request()
         .input('detalleID', sql.NVarChar, detalleID)
         .input('ventaID', sql.NVarChar, ventaID)
         .input('productoID', sql.NVarChar, detalle.ProductoID)
@@ -163,9 +152,12 @@ const createVenta = async (req, res) => {
           INSERT INTO DetalleVenta (DetalleID, VentaID, ProductoID, Cantidad, PrecioUnitario, Subtotal)
           VALUES (@detalleID, @ventaID, @productoID, @cantidad, @precioUnitario, @subtotal)
         `);
-    }
 
-    await transaction.commit();
+      await pool.request()
+        .input('id', sql.NVarChar, detalle.ProductoID)
+        .input('cantidad', sql.Int, detalle.Cantidad)
+        .query('UPDATE Productos SET Stock = Stock - @cantidad WHERE ProductoID = @id');
+    }
 
     const newVenta = await pool.request()
       .input('id', sql.NVarChar, ventaID)
@@ -183,9 +175,6 @@ const createVenta = async (req, res) => {
     });
 
   } catch (error) {
-    if (transaction._aborted === false) {
-      await transaction.rollback();
-    }
     res.status(500).json({
       success: false,
       error: 'Error al crear venta'

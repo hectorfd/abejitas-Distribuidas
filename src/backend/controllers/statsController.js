@@ -6,7 +6,7 @@ const getStats = async (req, res) => {
     const pool = await getConnection();
 
     const productosResult = await pool.request()
-      .query('SELECT COUNT(*) as total FROM Productos WHERE Activo = 1');
+      .query('SELECT COUNT(*) as total FROM Productos');
 
     const ventasResult = await pool.request()
       .query('SELECT COUNT(*) as total FROM Ventas');
