@@ -1,5 +1,6 @@
 const sql = require('mssql');
 const { connect: getConnection } = require('../../../database/connection');
+
 const { generateProductId, getBranchCode } = require('../utils/idGenerator');
 
 const getAllProductos = async (req, res) => {

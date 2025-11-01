@@ -182,8 +182,63 @@ const createVenta = async (req, res) => {
   }
 };
 
+const deleteVenta = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const pool = await getConnection();
+
+    // Verificar si la venta existe y obtener los detalles
+    const ventaResult = await pool.request()
+      .input('id', sql.NVarChar, id)
+      .query('SELECT VentaID FROM Ventas WHERE VentaID = @id');
+
+    if (ventaResult.recordset.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Venta no encontrada'
+      });
+    }
+
+    // Obtener los detalles de la venta para restaurar el stock
+    const detallesResult = await pool.request()
+      .input('id', sql.NVarChar, id)
+      .query('SELECT ProductoID, Cantidad FROM DetalleVenta WHERE VentaID = @id');
+
+    // Restaurar el stock de cada producto
+    for (const detalle of detallesResult.recordset) {
+      await pool.request()
+        .input('productoID', sql.NVarChar, detalle.ProductoID)
+        .input('cantidad', sql.Int, detalle.Cantidad)
+        .query('UPDATE Productos SET Stock = Stock + @cantidad WHERE ProductoID = @productoID');
+    }
+
+    // Eliminar los detalles de la venta
+    await pool.request()
+      .input('id', sql.NVarChar, id)
+      .query('DELETE FROM DetalleVenta WHERE VentaID = @id');
+
+    // Eliminar la venta
+    await pool.request()
+      .input('id', sql.NVarChar, id)
+      .query('DELETE FROM Ventas WHERE VentaID = @id');
+
+    res.json({
+      success: true,
+      message: 'Venta eliminada exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Error al eliminar venta:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al eliminar venta'
+    });
+  }
+};
+
 module.exports = {
   getAllVentas,
   getVentaById,
-  createVenta
+  createVenta,
+  deleteVenta
 };

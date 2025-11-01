@@ -519,9 +519,12 @@ async function renderVentasPage() {
     showVentasListView();
   });
 
-  document.getElementById('searchProductoVenta').addEventListener('input', async (e) => {
+  // Guardar la función de búsqueda para poder reasignarla
+  window.searchProductoVentaHandler = async (e) => {
     await searchProductosForSale(e.target.value);
-  });
+  };
+
+  document.getElementById('searchProductoVenta').addEventListener('input', window.searchProductoVentaHandler);
 
   document.getElementById('btnFinalizarVenta').addEventListener('click', async () => {
     await finalizarVenta();
@@ -566,9 +569,14 @@ function renderVentasTable(ventas) {
       <td>${v.Vendedor}</td>
       <td>S/ ${parseFloat(v.Total).toFixed(2)}</td>
       <td>
-        <button class="btn-icon" onclick="verDetalleVenta(${v.VentaID})" title="Ver detalle">
-          <i data-lucide="eye"></i>
-        </button>
+        <div class="action-buttons">
+          <button class="btn-icon" onclick="verDetalleVenta('${v.VentaID}')" title="Ver detalle">
+            <i data-lucide="eye"></i>
+          </button>
+          <button class="btn-icon danger" onclick="eliminarVenta('${v.VentaID}')" title="Eliminar">
+            <i data-lucide="trash-2"></i>
+          </button>
+        </div>
       </td>
     </tr>
   `).join('');
@@ -579,8 +587,41 @@ function renderVentasTable(ventas) {
 function showNuevaVentaView() {
   document.getElementById('viewVentas').style.display = 'none';
   document.getElementById('viewNuevaVenta').style.display = 'block';
+
+  // Limpiar completamente el estado de la venta
   window.saleItems = [];
-  updateSaleTotal();
+
+  // Obtener referencias a los elementos
+  const searchInput = document.getElementById('searchProductoVenta');
+  const sugerenciasDiv = document.getElementById('productosSugerencias');
+  const tbody = document.getElementById('saleProductsBody');
+  const btnFinalizar = document.getElementById('btnFinalizarVenta');
+
+  // Remover event listener anterior y agregar uno nuevo para evitar duplicados
+  if (window.searchProductoVentaHandler) {
+    searchInput.removeEventListener('input', window.searchProductoVentaHandler);
+    searchInput.addEventListener('input', window.searchProductoVentaHandler);
+  }
+
+  // Limpiar campos
+  searchInput.value = '';
+  searchInput.disabled = false; // Asegurar que esté habilitado
+  searchInput.readOnly = false; // Asegurar que no esté en modo solo lectura
+  sugerenciasDiv.style.display = 'none';
+
+  // Limpiar y renderizar la tabla vacía
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: #999;">No hay productos en la venta</td></tr>';
+
+  // Actualizar el total y resetear el botón
+  document.getElementById('saleTotal').textContent = '0.00';
+  btnFinalizar.disabled = true;
+  btnFinalizar.innerHTML = '<i data-lucide="check"></i> Finalizar Venta';
+
+  // Hacer foco en el campo de búsqueda
+  setTimeout(() => {
+    searchInput.focus();
+  }, 100);
+
   lucide.createIcons();
 }
 
@@ -724,7 +765,8 @@ async function finalizarVenta() {
   if (btnFinalizar.disabled) return;
 
   btnFinalizar.disabled = true;
-  btnFinalizar.textContent = 'Procesando...';
+  btnFinalizar.innerHTML = '<i data-lucide="loader"></i> Procesando...';
+  lucide.createIcons();
 
   const port = window.api.getPort();
   const usuario = JSON.parse(localStorage.getItem('usuario'));
@@ -749,15 +791,22 @@ async function finalizarVenta() {
 
     if (data.success) {
       alert('Venta registrada exitosamente');
+      // Limpiar completamente el estado de la venta
+      window.saleItems = [];
+      document.getElementById('searchProductoVenta').value = '';
+      document.getElementById('productosSugerencias').style.display = 'none';
       showVentasListView();
     } else {
       btnFinalizar.disabled = false;
-      btnFinalizar.textContent = 'Finalizar Venta';
+      btnFinalizar.innerHTML = '<i data-lucide="check"></i> Finalizar Venta';
+      lucide.createIcons();
       alert(data.error || 'Error al registrar venta');
     }
   } catch (error) {
+    console.error('Error al registrar venta:', error);
     btnFinalizar.disabled = false;
-    btnFinalizar.textContent = 'Finalizar Venta';
+    btnFinalizar.innerHTML = '<i data-lucide="check"></i> Finalizar Venta';
+    lucide.createIcons();
     alert('Error al registrar venta');
   }
 }
@@ -806,13 +855,204 @@ window.verDetalleVenta = async function(ventaID) {
         <div class="venta-detalle-total">
           <h2>Total: S/ ${parseFloat(v.Total).toFixed(2)}</h2>
         </div>
+        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+          <button class="btn-primary" onclick="imprimirBoleta('${v.VentaID}')">
+            <i data-lucide="printer"></i>
+            Imprimir Boleta
+          </button>
+        </div>
       `;
+      lucide.createIcons();
     } else {
       content.innerHTML = '<p style="color: red;">Error al cargar detalle</p>';
     }
   } catch (error) {
     console.error('Error al cargar detalle:', error);
     content.innerHTML = '<p style="color: red;">Error al cargar detalle</p>';
+  }
+};
+
+window.eliminarVenta = async function(ventaID) {
+  if (!confirm('¿Estas seguro de eliminar esta venta? Se restaurara el stock de los productos.')) {
+    return;
+  }
+
+  const port = window.api.getPort();
+
+  try {
+    const response = await fetch(`http://localhost:${port}/api/ventas/${ventaID}`, {
+      method: 'DELETE'
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      alert('Venta eliminada exitosamente');
+      await loadVentas();
+    } else {
+      alert(data.error || 'Error al eliminar venta');
+    }
+  } catch (error) {
+    console.error('Error al eliminar venta:', error);
+    alert('Error al eliminar venta');
+  }
+};
+
+window.imprimirBoleta = async function(ventaID) {
+  const port = window.api.getPort();
+
+  try {
+    const response = await fetch(`http://localhost:${port}/api/ventas/${ventaID}`);
+    const data = await response.json();
+
+    if (data.success && data.venta) {
+      const v = data.venta;
+      const usuario = JSON.parse(localStorage.getItem('usuario'));
+
+      // Crear ventana de impresión
+      const ventanaImpresion = window.open('', '_blank', 'width=800,height=600');
+
+      const boletaHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Boleta de Venta - ${v.NumeroVenta}</title>
+          <style>
+            body {
+              font-family: 'Courier New', monospace;
+              max-width: 80mm;
+              margin: 0 auto;
+              padding: 10px;
+              font-size: 12px;
+            }
+            .header {
+              text-align: center;
+              border-bottom: 2px dashed #000;
+              padding-bottom: 10px;
+              margin-bottom: 10px;
+            }
+            .header h2 {
+              margin: 5px 0;
+              font-size: 16px;
+            }
+            .info {
+              margin: 10px 0;
+              border-bottom: 1px dashed #000;
+              padding-bottom: 10px;
+            }
+            .info p {
+              margin: 3px 0;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 10px 0;
+            }
+            th {
+              text-align: left;
+              border-bottom: 1px solid #000;
+              padding: 5px 0;
+            }
+            td {
+              padding: 3px 0;
+            }
+            .total {
+              border-top: 2px solid #000;
+              margin-top: 10px;
+              padding-top: 10px;
+              text-align: right;
+              font-size: 14px;
+              font-weight: bold;
+            }
+            .footer {
+              text-align: center;
+              margin-top: 20px;
+              border-top: 1px dashed #000;
+              padding-top: 10px;
+              font-size: 10px;
+            }
+            @media print {
+              body {
+                padding: 0;
+              }
+              .no-print {
+                display: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2>SISTEMA DE VENTAS</h2>
+            <p>Sucursal: ${usuario.branch}</p>
+            <p>BOLETA DE VENTA</p>
+          </div>
+
+          <div class="info">
+            <p><strong>N° Venta:</strong> ${v.NumeroVenta}</p>
+            <p><strong>Fecha:</strong> ${new Date(v.FechaVenta).toLocaleString('es-PE')}</p>
+            <p><strong>Vendedor:</strong> ${v.Vendedor}</p>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Cant.</th>
+                <th>P.U.</th>
+                <th>Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${v.Detalles.map(d => `
+                <tr>
+                  <td>${d.ProductoNombre}</td>
+                  <td>${d.Cantidad}</td>
+                  <td>S/ ${parseFloat(d.PrecioUnitario).toFixed(2)}</td>
+                  <td>S/ ${parseFloat(d.Subtotal).toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="total">
+            <p>TOTAL: S/ ${parseFloat(v.Total).toFixed(2)}</p>
+          </div>
+
+          <div class="footer">
+            <p>Gracias por su compra</p>
+            <p>${new Date().toLocaleString('es-PE')}</p>
+          </div>
+
+          <div class="no-print" style="text-align: center; margin-top: 20px;">
+            <button onclick="window.print()" style="padding: 10px 20px; font-size: 14px; cursor: pointer;">
+              Imprimir
+            </button>
+            <button onclick="window.close()" style="padding: 10px 20px; font-size: 14px; cursor: pointer; margin-left: 10px;">
+              Cerrar
+            </button>
+          </div>
+        </body>
+        </html>
+      `;
+
+      ventanaImpresion.document.write(boletaHTML);
+      ventanaImpresion.document.close();
+
+      // Auto-imprimir después de cargar
+      ventanaImpresion.onload = function() {
+        setTimeout(() => {
+          ventanaImpresion.focus();
+        }, 250);
+      };
+
+    } else {
+      alert('Error al cargar datos de la venta');
+    }
+  } catch (error) {
+    console.error('Error al imprimir boleta:', error);
+    alert('Error al imprimir boleta');
   }
 };
 
