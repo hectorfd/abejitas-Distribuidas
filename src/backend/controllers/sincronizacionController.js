@@ -72,13 +72,15 @@ const executeSync = async (req, res) => {
       });
     }
 
-    // Obtener detalles de cada venta
+    // Obtener detalles de cada venta con información completa del producto
     for (let venta of ventas) {
       const detallesResult = await pool.request()
         .input('ventaID', sql.NVarChar, venta.VentaID)
         .query(`
           SELECT d.DetalleID, d.ProductoID, d.Cantidad, d.PrecioUnitario, d.Subtotal,
-                 p.Nombre as ProductoNombre, p.CodigoSucursal as ProductoCodigo
+                 p.Nombre as ProductoNombre, p.CodigoSucursal as ProductoCodigo,
+                 p.Descripcion as ProductoDescripcion, p.Categoria as ProductoCategoria,
+                 p.PrecioVenta as ProductoPrecioVenta, p.Stock as ProductoStock
           FROM DetalleVenta d
           INNER JOIN Productos p ON d.ProductoID = p.ProductoID
           WHERE d.VentaID = @ventaID
@@ -247,6 +249,34 @@ const receiveSync = async (req, res) => {
         if (existingVenta.recordset.length > 0) {
           console.log(`Venta ${venta.VentaID} ya existe, omitiendo...`);
           continue;
+        }
+
+        // Verificar y crear productos faltantes
+        if (venta.Detalles && venta.Detalles.length > 0) {
+          for (const detalle of venta.Detalles) {
+            const checkProducto = new sql.Request(transaction);
+            const existingProducto = await checkProducto
+              .input('productoID', sql.NVarChar, detalle.ProductoID)
+              .query('SELECT ProductoID FROM Productos WHERE ProductoID = @productoID');
+
+            if (existingProducto.recordset.length === 0) {
+              // Producto no existe, crearlo
+              console.log(`Creando producto faltante: ${detalle.ProductoID} - ${detalle.ProductoNombre}`);
+              const createProducto = new sql.Request(transaction);
+              await createProducto
+                .input('productoID', sql.NVarChar, detalle.ProductoID)
+                .input('codigoSucursal', sql.NVarChar, detalle.ProductoCodigo)
+                .input('nombre', sql.NVarChar, detalle.ProductoNombre || 'Producto sincronizado')
+                .input('descripcion', sql.NVarChar, detalle.ProductoDescripcion || '')
+                .input('categoria', sql.NVarChar, detalle.ProductoCategoria || 'General')
+                .input('precioVenta', sql.Decimal(10, 2), detalle.ProductoPrecioVenta || detalle.PrecioUnitario)
+                .input('stock', sql.Int, 0)  // Stock 0 en central, ya que se vendió en sucursal
+                .query(`
+                  INSERT INTO Productos (ProductoID, CodigoSucursal, Nombre, Descripcion, Categoria, PrecioVenta, Stock)
+                  VALUES (@productoID, @codigoSucursal, @nombre, @descripcion, @categoria, @precioVenta, @stock)
+                `);
+            }
+          }
         }
 
         // Insertar venta
