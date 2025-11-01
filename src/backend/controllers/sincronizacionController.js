@@ -260,8 +260,8 @@ const receiveSync = async (req, res) => {
               .query('SELECT ProductoID FROM Productos WHERE ProductoID = @productoID');
 
             if (existingProducto.recordset.length === 0) {
-              // Producto no existe, crearlo
-              console.log(`Creando producto faltante: ${detalle.ProductoID} - ${detalle.ProductoNombre}`);
+              // Producto no existe, crearlo con el stock actual de la sucursal
+              console.log(`Creando producto de ${sucursal}: ${detalle.ProductoID} - ${detalle.ProductoNombre} (Stock: ${detalle.ProductoStock})`);
               const createProducto = new sql.Request(transaction);
               await createProducto
                 .input('productoID', sql.NVarChar, detalle.ProductoID)
@@ -270,10 +270,23 @@ const receiveSync = async (req, res) => {
                 .input('descripcion', sql.NVarChar, detalle.ProductoDescripcion || '')
                 .input('categoria', sql.NVarChar, detalle.ProductoCategoria || 'General')
                 .input('precioVenta', sql.Decimal(10, 2), detalle.ProductoPrecioVenta || detalle.PrecioUnitario)
-                .input('stock', sql.Int, 0)  // Stock 0 en central, ya que se vendió en sucursal
+                .input('stock', sql.Int, detalle.ProductoStock || 0)  // Stock actual de la sucursal
                 .query(`
                   INSERT INTO Productos (ProductoID, CodigoSucursal, Nombre, Descripcion, Categoria, PrecioVenta, Stock)
                   VALUES (@productoID, @codigoSucursal, @nombre, @descripcion, @categoria, @precioVenta, @stock)
+                `);
+            } else {
+              // Producto existe, actualizar stock con el stock actual de la sucursal
+              console.log(`Actualizando stock de ${detalle.ProductoID}: ${detalle.ProductoStock} unidades en ${sucursal}`);
+              const updateProducto = new sql.Request(transaction);
+              await updateProducto
+                .input('productoID', sql.NVarChar, detalle.ProductoID)
+                .input('stock', sql.Int, detalle.ProductoStock || 0)
+                .input('precioVenta', sql.Decimal(10, 2), detalle.ProductoPrecioVenta || detalle.PrecioUnitario)
+                .query(`
+                  UPDATE Productos
+                  SET Stock = @stock, PrecioVenta = @precioVenta
+                  WHERE ProductoID = @productoID
                 `);
             }
           }
