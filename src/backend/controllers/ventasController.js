@@ -1,6 +1,6 @@
 const sql = require('mssql');
 const { connect: getConnection } = require('../../../database/connection');
-const { generateSaleId, generateDetailId, getBranchCode } = require('../utils/idGenerator');
+const { generateSaleId, generateDetailId, getNextDetailNumber, getBranchCode } = require('../utils/idGenerator');
 
 const getAllVentas = async (req, res) => {
   try {
@@ -81,160 +81,133 @@ const getVentaById = async (req, res) => {
 };
 
 const createVenta = async (req, res) => {
+  const { UsuarioID, Detalles } = req.body;
+  if (!UsuarioID || !Detalles || !Detalles.length) {
+    return res.status(400).json({ success: false, error: 'Datos incompletos' });
+  }
+
+  const pool = await getConnection();
+  const transaction = new sql.Transaction(pool);
+
   try {
-    const { UsuarioID, Detalles } = req.body;
+    await transaction.begin();
 
-    if (!UsuarioID || !Detalles || Detalles.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'UsuarioID y Detalles son requeridos'
-      });
-    }
+    const productoIDs = Detalles.map(d => d.ProductoID);
+    const productCheckRequest = new sql.Request(transaction);
 
-    const pool = await getConnection();
-    const ventaID = await generateSaleId();
-    const branchCode = getBranchCode();
+    const productCheckQuery = `SELECT ProductoID, Stock, PrecioVenta FROM Productos WHERE ProductoID IN (${productoIDs.map((id, i) => `@id${i}`).join(',')})`;
+    productoIDs.forEach((id, i) => productCheckRequest.input(`id${i}`, sql.NVarChar, id));
+    const productsResult = await productCheckRequest.query(productCheckQuery);
+    const productsData = new Map(productsResult.recordset.map(p => [p.ProductoID, p]));
 
     let total = 0;
     for (const detalle of Detalles) {
-      const productoResult = await pool.request()
-        .input('id', sql.NVarChar, detalle.ProductoID)
-        .query('SELECT Stock, PrecioVenta FROM Productos WHERE ProductoID = @id');
-
-      if (productoResult.recordset.length === 0) {
-        return res.status(400).json({
-          success: false,
-          error: `Producto ${detalle.ProductoID} no encontrado`
-        });
+      const product = productsData.get(detalle.ProductoID);
+      if (!product) {
+        throw new Error(`Producto ${detalle.ProductoID} no encontrado`);
       }
-
-      const producto = productoResult.recordset[0];
-
-      if (producto.Stock < detalle.Cantidad) {
-        return res.status(400).json({
-          success: false,
-          error: `Stock insuficiente para producto ${detalle.ProductoID}`
-        });
+      if (product.Stock < detalle.Cantidad) {
+        throw new Error(`Stock insuficiente para ${detalle.ProductoID}`);
       }
-
-      const precioUnitario = detalle.PrecioUnitario || producto.PrecioVenta;
-      const subtotal = precioUnitario * detalle.Cantidad;
-      total += subtotal;
+      const precioUnitario = detalle.PrecioUnitario || product.PrecioVenta;
+      total += precioUnitario * detalle.Cantidad;
     }
 
-    await pool.request()
+    const ventaID = await generateSaleId();
+    const branchCode = getBranchCode();
+    const ventaRequest = new sql.Request(transaction);
+    await ventaRequest
       .input('ventaID', sql.NVarChar, ventaID)
       .input('branchCode', sql.NVarChar, branchCode)
       .input('usuarioID', sql.Int, UsuarioID)
       .input('total', sql.Decimal(10, 2), total)
-      .query(`
-        INSERT INTO Ventas (VentaID, CodigoSucursal, UsuarioID, Total)
-        VALUES (@ventaID, @branchCode, @usuarioID, @total)
-      `);
+      .query('INSERT INTO Ventas (VentaID, CodigoSucursal, UsuarioID, Total) VALUES (@ventaID, @branchCode, @usuarioID, @total)');
 
-    for (const detalle of Detalles) {
-      const productoResult = await pool.request()
-        .input('id', sql.NVarChar, detalle.ProductoID)
-        .query('SELECT PrecioVenta FROM Productos WHERE ProductoID = @id');
-
-      const precioUnitario = detalle.PrecioUnitario || productoResult.recordset[0].PrecioVenta;
+    const nextDetailNum = await getNextDetailNumber(ventaID, transaction);
+    const detalleInsertRequest = new sql.Request(transaction);
+    const detalleValues = [];
+    for (let i = 0; i < Detalles.length; i++) {
+      const detalle = Detalles[i];
+      const product = productsData.get(detalle.ProductoID);
+      const precioUnitario = detalle.PrecioUnitario || product.PrecioVenta;
       const subtotal = precioUnitario * detalle.Cantidad;
-      const detalleID = await generateDetailId(ventaID);
+      const detalleID = `${ventaID}-${nextDetailNum + i}`;
 
-      await pool.request()
-        .input('detalleID', sql.NVarChar, detalleID)
-        .input('ventaID', sql.NVarChar, ventaID)
-        .input('productoID', sql.NVarChar, detalle.ProductoID)
-        .input('cantidad', sql.Int, detalle.Cantidad)
-        .input('precioUnitario', sql.Decimal(10, 2), precioUnitario)
-        .input('subtotal', sql.Decimal(10, 2), subtotal)
-        .query(`
-          INSERT INTO DetalleVenta (DetalleID, VentaID, ProductoID, Cantidad, PrecioUnitario, Subtotal)
-          VALUES (@detalleID, @ventaID, @productoID, @cantidad, @precioUnitario, @subtotal)
-        `);
-
-      await pool.request()
-        .input('id', sql.NVarChar, detalle.ProductoID)
-        .input('cantidad', sql.Int, detalle.Cantidad)
-        .query('UPDATE Productos SET Stock = Stock - @cantidad WHERE ProductoID = @id');
+      detalleInsertRequest.input(`detID${i}`, sql.NVarChar, detalleID);
+      detalleInsertRequest.input(`vID${i}`, sql.NVarChar, ventaID);
+      detalleInsertRequest.input(`pID${i}`, sql.NVarChar, detalle.ProductoID);
+      detalleInsertRequest.input(`cant${i}`, sql.Int, detalle.Cantidad);
+      detalleInsertRequest.input(`pu${i}`, sql.Decimal(10, 2), precioUnitario);
+      detalleInsertRequest.input(`sub${i}`, sql.Decimal(10, 2), subtotal);
+      detalleValues.push(`(@detID${i}, @vID${i}, @pID${i}, @cant${i}, @pu${i}, @sub${i})`);
     }
+    await detalleInsertRequest.query(`INSERT INTO DetalleVenta (DetalleID, VentaID, ProductoID, Cantidad, PrecioUnitario, Subtotal) VALUES ${detalleValues.join(',')}`);
 
-    const newVenta = await pool.request()
+    const stockUpdateRequest = new sql.Request(transaction);
+    let stockUpdateQuery = 'UPDATE Productos SET Stock = CASE ProductoID ';
+    for (let i = 0; i < Detalles.length; i++) {
+      const detalle = Detalles[i];
+      stockUpdateRequest.input(`pID_u${i}`, sql.NVarChar, detalle.ProductoID);
+      stockUpdateRequest.input(`cant_u${i}`, sql.Int, detalle.Cantidad);
+      stockUpdateQuery += `WHEN @pID_u${i} THEN Stock - @cant_u${i} `;
+    }
+    stockUpdateQuery += `END WHERE ProductoID IN (${productoIDs.map((id, i) => `@pID_in${i}`).join(',')})`;
+    productoIDs.forEach((id, i) => stockUpdateRequest.input(`pID_in${i}`, sql.NVarChar, id));
+    await stockUpdateRequest.query(stockUpdateQuery);
+
+    await transaction.commit();
+
+    const finalRequest = pool.request();
+    const newVenta = await finalRequest
       .input('id', sql.NVarChar, ventaID)
-      .query(`
-        SELECT v.VentaID, v.FechaVenta, v.Total,
-               u.NombreCompleto as Vendedor
-        FROM Ventas v
-        INNER JOIN Usuarios u ON v.UsuarioID = u.UsuarioID
-        WHERE v.VentaID = @id
-      `);
+      .query(`SELECT v.VentaID, v.FechaVenta, v.Total, u.NombreCompleto as Vendedor FROM Ventas v INNER JOIN Usuarios u ON v.UsuarioID = u.UsuarioID WHERE v.VentaID = @id`);
 
-    res.status(201).json({
-      success: true,
-      venta: newVenta.recordset[0]
-    });
+    res.status(201).json({ success: true, venta: newVenta.recordset[0] });
 
   } catch (error) {
-    console.error('Error al crear venta:', error);
-    console.error('Stack:', error.stack);
-    res.status(500).json({
-      success: false,
-      error: 'Error al crear venta: ' + error.message
-    });
+    if (transaction.rolledBack === false) {
+        await transaction.rollback();
+    }
+    res.status(500).json({ success: false, error: 'Error al crear venta: ' + error.message });
   }
 };
 
 const deleteVenta = async (req, res) => {
+  const { id } = req.params;
+  const pool = await getConnection();
+  const transaction = new sql.Transaction(pool);
+
   try {
-    const { id } = req.params;
-    const pool = await getConnection();
+    await transaction.begin();
+    const request = new sql.Request(transaction);
+    request.input('id', sql.NVarChar, id);
 
-    // Verificar si la venta existe y obtener los detalles
-    const ventaResult = await pool.request()
-      .input('id', sql.NVarChar, id)
-      .query('SELECT VentaID FROM Ventas WHERE VentaID = @id');
-
+    const ventaResult = await request.query('SELECT VentaID FROM Ventas WHERE VentaID = @id');
     if (ventaResult.recordset.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Venta no encontrada'
-      });
+      throw new Error('Venta no encontrada');
     }
 
-    // Obtener los detalles de la venta para restaurar el stock
-    const detallesResult = await pool.request()
-      .input('id', sql.NVarChar, id)
-      .query('SELECT ProductoID, Cantidad FROM DetalleVenta WHERE VentaID = @id');
+    const stockUpdateQuery = `
+      UPDATE p
+      SET p.Stock = p.Stock + dv.Cantidad
+      FROM Productos p
+      INNER JOIN DetalleVenta dv ON p.ProductoID = dv.ProductoID
+      WHERE dv.VentaID = @id
+    `;
+    await request.query(stockUpdateQuery);
 
-    // Restaurar el stock de cada producto
-    for (const detalle of detallesResult.recordset) {
-      await pool.request()
-        .input('productoID', sql.NVarChar, detalle.ProductoID)
-        .input('cantidad', sql.Int, detalle.Cantidad)
-        .query('UPDATE Productos SET Stock = Stock + @cantidad WHERE ProductoID = @productoID');
-    }
+    await request.query('DELETE FROM DetalleVenta WHERE VentaID = @id');
+    await request.query('DELETE FROM Ventas WHERE VentaID = @id');
 
-    // Eliminar los detalles de la venta
-    await pool.request()
-      .input('id', sql.NVarChar, id)
-      .query('DELETE FROM DetalleVenta WHERE VentaID = @id');
+    await transaction.commit();
 
-    // Eliminar la venta
-    await pool.request()
-      .input('id', sql.NVarChar, id)
-      .query('DELETE FROM Ventas WHERE VentaID = @id');
-
-    res.json({
-      success: true,
-      message: 'Venta eliminada exitosamente'
-    });
+    res.json({ success: true, message: 'Venta eliminada exitosamente' });
 
   } catch (error) {
-    console.error('Error al eliminar venta:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Error al eliminar venta'
-    });
+    if (transaction.rolledBack === false) {
+        await transaction.rollback();
+    }
+    res.status(500).json({ success: false, error: 'Error al eliminar venta: ' + error.message });
   }
 };
 

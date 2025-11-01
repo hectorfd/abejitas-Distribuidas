@@ -3,6 +3,56 @@ class VentasManager {
     this.carrito = [];
     this.port = window.api.getPort();
     this.usuario = JSON.parse(localStorage.getItem('usuario'));
+    this.searchTimeout = null;
+  }
+
+  mostrarMensaje(mensaje) {
+    const existente = document.getElementById('toastMessage');
+    if (existente) existente.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'toastMessage';
+    toast.style.cssText = 'position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #4CAF50; color: white; padding: 16px 32px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 10000; font-size: 16px;';
+    toast.textContent = mensaje;
+    document.body.appendChild(toast);
+
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  confirmar(mensaje) {
+    return new Promise((resolve) => {
+      const modal = document.createElement('div');
+      modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10001;';
+
+      modal.innerHTML = `
+        <div style="background: white; padding: 24px; border-radius: 8px; max-width: 400px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+          <h3 style="margin: 0 0 16px 0; color: #333;">${mensaje}</h3>
+          <div style="display: flex; gap: 12px; justify-content: flex-end;">
+            <button id="btnCancelar" style="padding: 10px 20px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">Cancelar</button>
+            <button id="btnConfirmar" style="padding: 10px 20px; border: none; background: #f44336; color: white; border-radius: 4px; cursor: pointer;">Eliminar</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(modal);
+
+      modal.querySelector('#btnConfirmar').onclick = () => {
+        modal.remove();
+        resolve(true);
+      };
+
+      modal.querySelector('#btnCancelar').onclick = () => {
+        modal.remove();
+        resolve(false);
+      };
+
+      modal.onclick = (e) => {
+        if (e.target === modal) {
+          modal.remove();
+          resolve(false);
+        }
+      };
+    });
   }
 
   async render() {
@@ -168,15 +218,35 @@ class VentasManager {
     `;
 
     modal.style.display = 'flex';
-
-    const input = document.getElementById('inputBuscar');
-    input.onkeyup = (e) => this.buscar(e.target.value);
-
-    document.getElementById('btnCerrarModal').onclick = () => this.cerrarModal();
-    document.getElementById('btnGuardar').onclick = () => this.guardar();
-
-    setTimeout(() => input.focus(), 100);
     lucide.createIcons();
+
+    setTimeout(() => {
+      const input = document.getElementById('inputBuscar');
+
+      input.disabled = false;
+      input.readOnly = false;
+      input.removeAttribute('disabled');
+      input.removeAttribute('readonly');
+      input.style.pointerEvents = 'auto';
+
+      window.blur();
+      window.focus();
+      document.body.offsetHeight;
+
+      input.oninput = (e) => {
+        if (this.searchTimeout) {
+          clearTimeout(this.searchTimeout);
+        }
+        this.searchTimeout = setTimeout(() => {
+          this.buscar(e.target.value);
+        }, 300);
+      };
+
+      document.getElementById('btnCerrarModal').onclick = () => this.cerrarModal();
+      document.getElementById('btnGuardar').onclick = () => this.guardar();
+
+      input.focus();
+    }, 50);
   }
 
   cerrarModal() {
@@ -193,14 +263,11 @@ class VentasManager {
     }
 
     try {
-      const response = await fetch(`http://localhost:${this.port}/api/productos`);
+      const response = await fetch(`http://localhost:${this.port}/api/productos?search=${encodeURIComponent(query)}`);
       const data = await response.json();
 
       if (data.success) {
-        const filtrados = data.productos.filter(p =>
-          p.Nombre.toLowerCase().includes(query.toLowerCase()) ||
-          p.Codigo.toLowerCase().includes(query.toLowerCase())
-        );
+        const filtrados = data.productos; // Backend now filters
 
         if (filtrados.length > 0) {
           container.innerHTML = filtrados.map(p => `
@@ -231,7 +298,7 @@ class VentasManager {
         }
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error buscar:', error);
     }
   }
 
@@ -242,7 +309,7 @@ class VentasManager {
       if (existe.Cantidad < producto.Stock) {
         existe.Cantidad++;
       } else {
-        alert('Stock insuficiente');
+        this.mostrarMensaje('Stock insuficiente');
         return;
       }
     } else {
@@ -295,7 +362,7 @@ class VentasManager {
       item.Cantidad = nueva;
       this.renderCarrito();
     } else if (nueva > item.Stock) {
-      alert('Stock insuficiente');
+      this.mostrarMensaje('Stock insuficiente');
     }
   }
 
@@ -328,17 +395,17 @@ class VentasManager {
       const data = await response.json();
 
       if (data.success) {
-        alert('Venta guardada');
+        this.mostrarMensaje('Venta guardada');
         this.cerrarModal();
         await this.cargarVentas();
       } else {
-        alert(data.error || 'Error');
+        this.mostrarMensaje(data.error || 'Error');
         btn.disabled = false;
         btn.textContent = 'Guardar Venta';
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Error al guardar');
+      this.mostrarMensaje('Error al guardar');
       btn.disabled = false;
       btn.textContent = 'Guardar Venta';
     }
@@ -372,7 +439,9 @@ class VentasManager {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px;">No hay ventas</td></tr>';
       }
 
-      lucide.createIcons();
+      requestAnimationFrame(() => {
+        lucide.createIcons();
+      });
     } catch (error) {
       console.error('Error:', error);
     }
@@ -416,23 +485,26 @@ class VentasManager {
   }
 
   async eliminar(id) {
-    if (!confirm('¿Eliminar venta? Se restaurará stock.')) return;
+    const confirmado = await this.confirmar('¿Eliminar esta venta? Se restaurará el stock de los productos.');
+    if (!confirmado) return;
 
     try {
       const response = await fetch(`http://localhost:${this.port}/api/ventas/${id}`, {method: 'DELETE'});
       const data = await response.json();
 
       if (data.success) {
-        alert('Eliminada');
+        this.mostrarMensaje('Venta eliminada');
         await this.cargarVentas();
       } else {
-        alert(data.error || 'Error');
+        this.mostrarMensaje(data.error || 'Error');
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Error');
+      this.mostrarMensaje('Error al eliminar');
     }
   }
 }
 
 window.ventasManager = new VentasManager();
+
+

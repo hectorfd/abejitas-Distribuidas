@@ -5,15 +5,27 @@ const { generateProductId, getBranchCode } = require('../utils/idGenerator');
 
 const getAllProductos = async (req, res) => {
   try {
+    const { search } = req.query;
     const pool = await getConnection();
-    const result = await pool.request()
-      .query('SELECT ProductoID, CodigoSucursal AS Codigo, Nombre, Descripcion, Imagen, PrecioCompra, PrecioVenta, Stock, StockMinimo, Categoria FROM Productos ORDER BY Nombre');
+    const request = pool.request();
+
+    let query = 'SELECT TOP 50 ProductoID, CodigoSucursal AS Codigo, Nombre, Descripcion, Imagen, PrecioCompra, PrecioVenta, Stock, StockMinimo, Categoria FROM Productos';
+
+    if (search) {
+      query += ' WHERE (Nombre LIKE @search OR CodigoSucursal LIKE @search)';
+      request.input('search', sql.NVarChar, `%${search}%`);
+    }
+
+    query += ' ORDER BY Nombre';
+
+    const result = await request.query(query);
 
     res.json({
       success: true,
       productos: result.recordset
     });
   } catch (error) {
+    console.error('Error al obtener productos:', error.message);
     res.status(500).json({
       success: false,
       error: 'Error al obtener productos'
@@ -26,7 +38,7 @@ const getProductoById = async (req, res) => {
     const { id } = req.params;
     const pool = await getConnection();
     const result = await pool.request()
-      .input('id', sql.Int, id)
+      .input('id', sql.NVarChar, id)
       .query('SELECT * FROM Productos WHERE ProductoID = @id');
 
     if (result.recordset.length === 0) {
@@ -64,7 +76,7 @@ const createProducto = async (req, res) => {
     const codigo = await generateProductId();
     const branchCode = getBranchCode();
 
-    const result = await pool.request()
+    await pool.request()
       .input('codigo', sql.NVarChar, codigo)
       .input('branchCode', sql.NVarChar, branchCode)
       .input('nombre', sql.NVarChar, Nombre)
@@ -78,12 +90,11 @@ const createProducto = async (req, res) => {
       .query(`
         INSERT INTO Productos (ProductoID, CodigoSucursal, Nombre, Descripcion, Imagen, PrecioCompra, PrecioVenta, Stock, StockMinimo, Categoria)
         VALUES (@codigo, @branchCode, @nombre, @descripcion, @imagen, @precioCompra, @precioVenta, @stock, @stockMinimo, @categoria);
-        SELECT @codigo AS ProductoID;
       `);
 
     const newProduct = await pool.request()
       .input('id', sql.NVarChar, codigo)
-      .query('SELECT * FROM Productos WHERE ProductoID = @id');
+      .query('SELECT ProductoID, CodigoSucursal AS Codigo, Nombre, Descripcion, Imagen, PrecioCompra, PrecioVenta, Stock, StockMinimo, Categoria FROM Productos WHERE ProductoID = @id');
 
     res.status(201).json({
       success: true,
@@ -103,17 +114,6 @@ const updateProducto = async (req, res) => {
     const { Nombre, Descripcion, PrecioCompra, PrecioVenta, Stock, StockMinimo } = req.body;
 
     const pool = await getConnection();
-
-    const existing = await pool.request()
-      .input('id', sql.NVarChar, id)
-      .query('SELECT ProductoID FROM Productos WHERE ProductoID = @id');
-
-    if (existing.recordset.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Producto no encontrado'
-      });
-    }
 
     await pool.request()
       .input('id', sql.NVarChar, id)
@@ -135,14 +135,7 @@ const updateProducto = async (req, res) => {
         WHERE ProductoID = @id
       `);
 
-    const updated = await pool.request()
-      .input('id', sql.NVarChar, id)
-      .query('SELECT * FROM Productos WHERE ProductoID = @id');
-
-    res.json({
-      success: true,
-      producto: updated.recordset[0]
-    });
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -155,17 +148,6 @@ const deleteProducto = async (req, res) => {
   try {
     const { id } = req.params;
     const pool = await getConnection();
-
-    const existing = await pool.request()
-      .input('id', sql.NVarChar, id)
-      .query('SELECT ProductoID FROM Productos WHERE ProductoID = @id');
-
-    if (existing.recordset.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Producto no encontrado'
-      });
-    }
 
     await pool.request()
       .input('id', sql.NVarChar, id)
@@ -190,3 +172,4 @@ module.exports = {
   updateProducto,
   deleteProducto
 };
+

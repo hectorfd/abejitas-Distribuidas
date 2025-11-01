@@ -57,7 +57,11 @@ async function generateProductId() {
   return `${branchCode}-PROD-${padNumber(consecutive)}`;
 }
 
-async function generateDetailId(saleId) {
+async function generateDetailId(saleId, index = null) {
+  if (index !== null) {
+    return `${saleId}-${index}`;
+  }
+
   const pool = await getConnection();
 
   const result = await pool.request()
@@ -68,9 +72,20 @@ async function generateDetailId(saleId) {
   return `${saleId}-${consecutive}`;
 }
 
+async function getNextDetailNumber(saleId, transaction = null) {
+  const pool = transaction ? { request: () => new sql.Request(transaction) } : await getConnection();
+
+  const result = await pool.request()
+    .input('saleId', sql.NVarChar, saleId)
+    .query('SELECT ISNULL(MAX(CAST(RIGHT(DetalleID, CHARINDEX(\'-\', REVERSE(DetalleID)) - 1) AS INT)), 0) as maxNum FROM DetalleVenta WHERE VentaID = @saleId');
+
+  return result.recordset[0].maxNum + 1;
+}
+
 module.exports = {
   generateSaleId,
   generateProductId,
   generateDetailId,
+  getNextDetailNumber,
   getBranchCode
 };
