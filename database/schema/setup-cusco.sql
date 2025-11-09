@@ -49,7 +49,8 @@ CREATE TABLE Ventas (
     Total DECIMAL(10,2) NOT NULL,
     FechaVenta DATETIME DEFAULT GETDATE(),
     UsuarioID INT,
-    Sincronizado BIT DEFAULT 0,
+    Sincronizada BIT DEFAULT 0,
+    FechaSincronizacion DATETIME NULL,
     FOREIGN KEY (UsuarioID) REFERENCES Usuarios(UsuarioID),
     FOREIGN KEY (CodigoSucursal) REFERENCES Sucursales(CodigoSucursal)
 );
