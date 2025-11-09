@@ -16,12 +16,12 @@
   },
 
   "servidor_app": {
-    "puerto": 3002,
-    "host": "localhost"
+    "puerto": 3000,
+    "host": "0.0.0.0"
   },
 
   "servidor_central": {
-    "host": "192.168.1.10",
+    "host": "172.20.10.2",
     "puerto": 3000,
     "habilitado": true
   },
@@ -29,7 +29,7 @@
   "sincronizacion": {
     "automatica": true,
     "hora": "23:00",
-    "intervalo_minutos": null
+    "intervalo_minutos": 30
   },
 
   "negocio": {
