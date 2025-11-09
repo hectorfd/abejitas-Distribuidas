@@ -20,7 +20,7 @@ Get-NetFirewallRule -DisplayName "Abejitas Central - Puerto 3000"
 ipconfig | findstr "IPv4"
 ```
 
-Tu IP actual: `192.168.1.5`
+Tu IP actual: `172.20.10.2`
 
 ### 3. Verificar que el servidor está escuchando
 
@@ -45,7 +45,7 @@ Abre **PowerShell como Administrador** en el laptop y ejecuta:
 New-NetFirewallRule -DisplayName "Abejitas Sucursal - Puerto 3000" -Direction Inbound -LocalPort 3000 -Protocol TCP -Action Allow
 
 # Permitir conexiones salientes hacia el servidor central
-New-NetFirewallRule -DisplayName "Abejitas Sucursal - Salida Central" -Direction Outbound -RemoteAddress 192.168.1.5 -RemotePort 3000 -Protocol TCP -Action Allow
+New-NetFirewallRule -DisplayName "Abejitas Sucursal - Salida Central" -Direction Outbound -RemoteAddress 172.20.10.2 -RemotePort 3000 -Protocol TCP -Action Allow
 ```
 
 ### 2. Editar config.json en el Laptop
@@ -76,7 +76,7 @@ Ruta: `config/config.json`
   },
 
   "servidor_central": {
-    "host": "192.168.1.5",
+    "host": "172.20.10.2",
     "puerto": 3000,
     "habilitado": true
   },
@@ -113,10 +113,10 @@ sqlcmd -S NOMBRE_SERVIDOR_LAPTOP -U sa -P 12345678 -i "database/schema/setup-cus
 
 ```powershell
 # Probar si el puerto está abierto
-Test-NetConnection -ComputerName 192.168.1.5 -Port 3000
+Test-NetConnection -ComputerName 172.20.10.2 -Port 3000
 
 # O con telnet (si está habilitado)
-telnet 192.168.1.5 3000
+telnet 172.20.10.2 3000
 ```
 
 Si `TcpTestSucceeded: True`, la conexión funciona ✅
@@ -137,7 +137,7 @@ netstat -ano | findstr :3000
 1. **Verificar que ambas están en la misma red WiFi**
 2. **Ping desde laptop a PC:**
    ```powershell
-   ping 192.168.1.5
+   ping 172.20.10.2
    ```
 3. **Verificar firewall del router** - Algunos routers bloquean comunicación entre dispositivos
 4. **Desactivar temporalmente firewall de Windows para probar:**
