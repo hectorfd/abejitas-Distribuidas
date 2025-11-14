@@ -949,8 +949,4 @@ Este proyecto demuestra que **los sistemas distribuidos no son solo teoría acad
 
 Los conceptos aplicados aquí (particionamiento, replicación, consistencia eventual, protocolos de comunicación) son los mismos que utilizan sistemas a escala masiva como Amazon DynamoDB, Google Spanner, y Apache Cassandra, adaptados a la escala y requisitos de un negocio de abarrotes.
 
----
 
-**Proyecto desarrollado para el curso de Sistemas Distribuidos**
-**Universidad:** [Tu Universidad]
-**Año:** 2024
